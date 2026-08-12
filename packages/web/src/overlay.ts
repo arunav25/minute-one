@@ -21,11 +21,28 @@ export type OverlayView = {
   offeringHandoff: boolean;
   terminal: string | null;
   terminalReason: string | null;
-  transcript: Array<{ role: "user" | "assistant"; text: string }>;
+  transcript: Array<{
+    role: "user" | "assistant";
+    text: string;
+    /** Still being spoken — shown live and dimmed until the final arrives. */
+    partial?: boolean;
+  }>;
   proof: VoiceProviderProof | null;
   connectionError: string | null;
   /** Emphasised inside the instruction so the words match the ring. */
   targetLabel: string | null;
+  /**
+   * One-word session stage — Speaking, Listening, Waiting for you, Checking
+   * the page, Correcting, Complete, Phone help available. Announced through an
+   * ARIA live region as it changes.
+   */
+  stage: string | null;
+  /**
+   * Why the ring is absent, when it is — the spotlight could not resolve the
+   * step's control (missing, ambiguous, disabled). Informational only; the
+   * verification gate does not read it.
+   */
+  targetNote: string | null;
   /** PyAI is connected but the browser refused the microphone. */
   micBlocked: boolean;
   helpNumber: string;
@@ -55,7 +72,14 @@ const STYLE = `
 .dot { width:8px; height:8px; border-radius:50%; background:#6b7a76; }
 .dot.on { background:#c6ff4a; box-shadow:0 0 10px rgba(198,255,74,.8); }
 .title { font-weight:700; }
+.brand { color:#6b7a76; font-size:11px; }
 .step { margin-left:auto; color:#6b7a76; font-family:ui-monospace,Menlo,monospace; font-size:11px; }
+.stage { display:inline-block; margin:0 0 8px; padding:3px 9px; border-radius:999px;
+  border:1px solid #353f43; background:#1b2022; color:#97a5a1;
+  font-family:ui-monospace,Menlo,monospace; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; }
+.target-note { margin:0 0 10px; color:#ffc879; font-size:12.5px; }
+.sr-live { position:absolute; width:1px; height:1px; overflow:hidden;
+  clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
 .proof { border:1px solid #353f43; border-radius:10px; padding:10px; margin-bottom:12px; background:#1b2022; }
 .proof.real { border-color: rgba(126,224,129,.55); }
 .proof.mock { border-color: rgba(255,107,94,.6); }
@@ -88,6 +112,7 @@ button { font:inherit; cursor:pointer; }
 a { color:#c6ff4a; font-size:12.5px; }
 .transcript { margin-top:12px; border-top:1px solid #262d30; padding-top:10px; max-height:170px; overflow-y:auto; font-size:12.5px; }
 .transcript p { margin:0 0 7px; color:#97a5a1; }
+.transcript p.live { color:#c6ccca; opacity:.75; font-style:italic; }
 .transcript span { display:block; font-family:ui-monospace,Menlo,monospace; font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:#6b7a76; }
 @media (max-width: 900px) {
   .wrap { position: static; width: auto; margin: 12px; max-height:none; }
@@ -103,6 +128,7 @@ export class ShadowOverlay {
   private host: HTMLElement;
   private root: ShadowRoot;
   private container: HTMLDivElement;
+  private live: HTMLDivElement;
   private transcriptOpen = false;
   private view: OverlayView | null = null;
 
@@ -118,7 +144,17 @@ export class ShadowOverlay {
     this.container.className = "wrap";
     this.container.setAttribute("role", "complementary");
     this.container.setAttribute("aria-label", "Minute One voice guide");
-    this.root.append(style, this.container);
+    /*
+     * The live region is a separate, persistent node: render() rebuilds the
+     * panel with innerHTML, and a live region that is itself replaced on every
+     * render is a new node each time, which screen readers do not announce.
+     * Updating textContent on a stable node is what makes aria-live work.
+     */
+    this.live = document.createElement("div");
+    this.live.className = "sr-live";
+    this.live.setAttribute("aria-live", "polite");
+    this.live.setAttribute("role", "status");
+    this.root.append(style, this.container, this.live);
 
     this.container.addEventListener("click", (event) => {
       const action = (event.target as HTMLElement)?.getAttribute?.(
@@ -205,7 +241,9 @@ export class ShadowOverlay {
       : "";
 
     const runningBlock = view.running
-      ? `<p class="status">${esc(view.checking ? "Checking your page…" : view.status)}</p>
+      ? `${view.stage ? `<span class="stage" data-testid="stage">${esc(view.stage)}</span>` : ""}
+         <p class="status">${esc(view.checking ? "Checking your page…" : view.status)}</p>
+         ${view.targetNote ? `<p class="target-note" data-testid="target-note">${esc(view.targetNote)}</p>` : ""}
          ${view.instruction ? `<p class="instruction" data-testid="instruction">${emphasise(view.instruction, view.targetLabel)}</p>` : ""}
          ${
            view.missing.length
@@ -258,17 +296,23 @@ export class ShadowOverlay {
             ? view.transcript
                 .map(
                   (l) =>
-                    `<p><span>${l.role === "user" ? "You" : "Guide"}</span>${esc(l.text)}</p>`
+                    `<p class="${l.partial ? "live" : ""}"><span>${l.role === "user" ? "You" : "Guide"}</span>${esc(l.text)}</p>`
                 )
                 .join("")
             : `<p class="muted">Nothing spoken yet.</p>`
         }</div>`
       : "";
 
+    /*
+     * During a running journey the panel presents as "Guide me" — the thing it
+     * is doing — with Minute One reduced to a brand label. Only the label
+     * changes: packages, globals, storage keys and events all keep their names.
+     */
     this.container.innerHTML = `
       <div class="head">
         <span class="dot ${view.running ? "on" : ""}"></span>
-        <span class="title">Minute One</span>
+        <span class="title">${view.running ? "Guide me" : "Minute One"}</span>
+        ${view.running ? `<span class="brand">Minute One</span>` : ""}
         <span class="step">${
           view.running && view.stepCount
             ? `Step ${Math.min(view.stepIndex + 1, view.stepCount)} of ${view.stepCount}`
@@ -276,6 +320,12 @@ export class ShadowOverlay {
         }</span>
       </div>
       ${proofBlock}${micBlock}${startBlock}${runningBlock}${handoffBlock}${terminalBlock}${transcriptBlock}`;
+
+    // Announce stage changes without re-announcing every repaint.
+    const announcement = view.stage ?? view.terminal ?? "";
+    if (announcement && this.live.textContent !== announcement) {
+      this.live.textContent = announcement;
+    }
   }
 
   destroy() {

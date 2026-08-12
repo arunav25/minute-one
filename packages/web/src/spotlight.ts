@@ -75,52 +75,131 @@ function scopeRoot(target: StepTarget): ParentNode {
   return match ?? document;
 }
 
-/**
- * Resolve a semantic description to a live element.
- * Order matters: semantics first, brittle hooks last.
- */
-export function resolveTarget(target: StepTarget): HTMLElement | null {
-  const root = scopeRoot(target);
-  const all = Array.from(root.querySelectorAll<HTMLElement>("*")).filter(
-    isVisible
+/** What resolution actually established, not just what it picked. */
+export type TargetResolutionStatus =
+  | "found"
+  | "missing"
+  | "ambiguous"
+  | "hidden"
+  | "disabled";
+
+export type TargetResolution = {
+  status: TargetResolutionStatus;
+  element: HTMLElement | null;
+  /** How many visible candidates matched, when that is what went wrong. */
+  matches?: number;
+};
+
+function isDisabled(el: Element): boolean {
+  return (
+    (el as HTMLButtonElement).disabled === true ||
+    el.getAttribute("aria-disabled") === "true"
   );
+}
+
+/**
+ * Resolve a semantic description to a live element, reporting *why* when it
+ * cannot.
+ *
+ * Order matters: semantics first, brittle hooks last. Within a strategy the
+ * result must be unique among visible elements — guessing the first of several
+ * matches would spotlight a control the author never meant, which is worse
+ * than showing nothing. The authored `within` scope is the disambiguator; if
+ * the result is still not unique the status is `ambiguous` and no element is
+ * chosen.
+ */
+export function resolveTargetDetailed(target: StepTarget): TargetResolution {
+  const root = scopeRoot(target);
+  const everything = Array.from(root.querySelectorAll<HTMLElement>("*"));
+  const all = everything.filter(isVisible);
+
+  let sawHidden = false;
+  let ambiguous: number | null = null;
+
+  const judge = (visibleHits: HTMLElement[], hiddenHits: number): TargetResolution | null => {
+    if (visibleHits.length === 1) {
+      const el = visibleHits[0];
+      return { status: isDisabled(el) ? "disabled" : "found", element: el };
+    }
+    if (visibleHits.length > 1) {
+      ambiguous = ambiguous ?? visibleHits.length;
+      return null;
+    }
+    if (hiddenHits > 0) sawHidden = true;
+    return null;
+  };
 
   if (target.role && target.name) {
-    const hit = all.find(
-      (el) =>
-        roleOf(el) === target.role && norm(accessibleName(el)) === norm(target.name!)
+    const match = (el: HTMLElement) =>
+      roleOf(el) === target.role &&
+      norm(accessibleName(el)) === norm(target.name!);
+    const result = judge(
+      all.filter(match),
+      everything.filter((el) => !isVisible(el) && match(el)).length
     );
-    if (hit) return hit;
+    if (result) return result;
   }
 
   if (target.name) {
-    const exact = all.find((el) => norm(accessibleName(el)) === norm(target.name!));
-    if (exact) return exact;
+    const match = (el: HTMLElement) =>
+      norm(accessibleName(el)) === norm(target.name!);
+    const result = judge(
+      all.filter(match),
+      everything.filter((el) => !isVisible(el) && match(el)).length
+    );
+    if (result) return result;
   }
 
   if (target.text) {
-    const hit = all
+    const candidates = all
       .filter((el) => el.children.length === 0 || roleOf(el) === "button")
-      .find((el) => norm(accessibleName(el)).includes(norm(target.text!)));
-    if (hit) return hit;
+      .filter((el) => norm(accessibleName(el)).includes(norm(target.text!)));
+    const result = judge(candidates, 0);
+    if (result) return result;
   }
 
   if (target.testId) {
-    const hit = root.querySelector<HTMLElement>(
-      `[data-testid="${target.testId}"]`
+    const hits = Array.from(
+      root.querySelectorAll<HTMLElement>(`[data-testid="${target.testId}"]`)
     );
-    if (hit && isVisible(hit)) return hit;
+    const result = judge(hits.filter(isVisible), hits.filter((el) => !isVisible(el)).length);
+    if (result) return result;
   }
 
   if (target.selector) {
-    const hit = root.querySelector<HTMLElement>(target.selector);
-    if (hit && isVisible(hit)) return hit;
+    const hits = Array.from(root.querySelectorAll<HTMLElement>(target.selector));
+    const result = judge(hits.filter(isVisible), hits.filter((el) => !isVisible(el)).length);
+    if (result) return result;
   }
 
-  return null;
+  if (ambiguous !== null) {
+    return { status: "ambiguous", element: null, matches: ambiguous };
+  }
+  return { status: sawHidden ? "hidden" : "missing", element: null };
+}
+
+/** Compatibility wrapper for callers that only care about the happy path. */
+export function resolveTarget(target: StepTarget): HTMLElement | null {
+  const r = resolveTargetDetailed(target);
+  return r.status === "found" ? r.element : null;
 }
 
 const STYLE = `
+/* One element, two jobs: its border is the cutout's edge, and its enormous
+   spread shadow is the dimmed page around it. A single rounded rectangle gives
+   a clean cutout without stitching four mask panels together. */
+.mask {
+  position: fixed;
+  box-sizing: border-box;
+  border-radius: 12px;
+  pointer-events: none;
+  box-shadow: 0 0 0 200vmax rgba(8, 10, 12, .45);
+  transition: opacity .2s ease;
+  opacity: 0;
+  /* Below the ring and pulse, and below the instruction panel (2147483000). */
+  z-index: 2147482998;
+}
+.mask.on { opacity: 1; }
 .ring {
   position: fixed;
   /* :host { all: initial } resets box-sizing to content-box, which would make
@@ -154,26 +233,40 @@ const STYLE = `
   100% { box-shadow: 0 0 0 0 rgba(124,92,255,0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ring { transition: none; }
+  .ring, .mask { transition: none; }
   .pulse.on { animation: none; }
 }
 `;
 
 export class Spotlight {
+  private mask: HTMLDivElement;
   private ring: HTMLDivElement;
   private pulse: HTMLDivElement;
   private target: StepTarget | null = null;
   private element: HTMLElement | null = null;
   private timer: number | null = null;
   private onViewportChange: (() => void) | null = null;
+  private resizeObserver: ResizeObserver | null = null;
   private lastRect = "";
+  private lastStatus: TargetResolutionStatus | null = null;
   private scrolledFor: StepTarget | null = null;
   private warned = false;
 
-  constructor(root: ShadowRoot) {
+  constructor(
+    root: ShadowRoot,
+    /**
+     * Fired when what resolution established changes — found, missing,
+     * ambiguous, hidden, disabled — so the overlay can say why there is no
+     * ring instead of leaving a silent gap. Purely informational: it must
+     * never feed the verification gate.
+     */
+    private readonly onResolution?: (status: TargetResolutionStatus) => void
+  ) {
     const style = document.createElement("style");
     style.textContent = STYLE;
 
+    this.mask = document.createElement("div");
+    this.mask.className = "mask";
     this.ring = document.createElement("div");
     this.ring.className = "ring";
     this.pulse = document.createElement("div");
@@ -181,12 +274,12 @@ export class Spotlight {
 
     // Decoration only: invisible to assistive tech and to hit-testing, so the
     // host's own click and focus behaviour is completely unaffected.
-    for (const el of [this.ring, this.pulse]) {
+    for (const el of [this.mask, this.ring, this.pulse]) {
       el.setAttribute("aria-hidden", "true");
       el.style.pointerEvents = "none";
     }
 
-    root.append(style, this.ring, this.pulse);
+    root.append(style, this.mask, this.ring, this.pulse);
   }
 
   /** Point at a new target. Safe to call repeatedly with the same one. */
@@ -196,23 +289,37 @@ export class Spotlight {
     this.target = target;
     this.element = null;
     this.lastRect = "";
+    this.lastStatus = null;
     this.scrolledFor = null;
     this.startTracking();
   }
 
-  /** Remove the ring. Called between steps and on teardown. */
+  /** Remove the ring and mask. Called between steps and on teardown. */
   clear() {
     this.target = null;
     this.element = null;
-    this.ring.classList.remove("on");
-    this.pulse.classList.remove("on");
+    this.lastStatus = null;
+    this.hideVisuals();
     this.stopTracking();
   }
 
   destroy() {
     this.clear();
+    this.mask.remove();
     this.ring.remove();
     this.pulse.remove();
+  }
+
+  private hideVisuals() {
+    this.mask.classList.remove("on");
+    this.ring.classList.remove("on");
+    this.pulse.classList.remove("on");
+  }
+
+  private report(status: TargetResolutionStatus) {
+    if (status === this.lastStatus) return;
+    this.lastStatus = status;
+    this.onResolution?.(status);
   }
 
   /*
@@ -241,6 +348,24 @@ export class Spotlight {
       window.removeEventListener("resize", this.onViewportChange);
       this.onViewportChange = null;
     }
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
+  }
+
+  /**
+   * Follow the target's own size, not just the viewport's. A panel expanding
+   * above the target moves it without any scroll or resize event; the interval
+   * would catch it eventually, but 200ms of a ring floating next to nothing is
+   * visible. Re-attached whenever a framework swaps the node.
+   */
+  private observeElement(el: HTMLElement) {
+    if (typeof ResizeObserver === "undefined") return;
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = new ResizeObserver(() => this.update());
+    this.resizeObserver.observe(el);
+    // The target moves when an ancestor resizes too, and the body catches the
+    // "content above it expanded" case without observing every ancestor.
+    if (document.body) this.resizeObserver.observe(document.body);
   }
 
   /**
@@ -268,12 +393,22 @@ export class Spotlight {
     if (!this.target) return;
 
     if (!this.element || !this.element.isConnected || !isVisible(this.element)) {
-      this.element = resolveTarget(this.target);
+      const resolution = resolveTargetDetailed(this.target);
+      this.report(resolution.status);
+      const next = resolution.status === "found" ? resolution.element : null;
+      if (next && next !== this.element) this.observeElement(next);
+      this.element = next;
+    } else if (isDisabled(this.element)) {
+      // The node is still there but the host disabled it — an active ring on a
+      // control the user cannot press is an instruction to do the impossible.
+      this.report("disabled");
+      this.element = null;
+    } else {
+      this.report("found");
     }
 
     if (!this.element) {
-      this.ring.classList.remove("on");
-      this.pulse.classList.remove("on");
+      this.hideVisuals();
       // Forget the last geometry. Otherwise a target that disappears and
       // returns at the same position matches the cache below, skips the
       // repaint, and never becomes visible again.
@@ -292,6 +427,13 @@ export class Spotlight {
       this.ring.style.left = `${r.left - pad}px`;
       this.ring.style.width = `${r.width + pad * 2}px`;
       this.ring.style.height = `${r.height + pad * 2}px`;
+      // The mask's cutout hugs the same rectangle, slightly looser so the ring
+      // reads as inside the lit area rather than clipped by it.
+      const maskPad = pad + 4;
+      this.mask.style.top = `${r.top - maskPad}px`;
+      this.mask.style.left = `${r.left - maskPad}px`;
+      this.mask.style.width = `${r.width + maskPad * 2}px`;
+      this.mask.style.height = `${r.height + maskPad * 2}px`;
       // Top-right corner, not beside the element: a dot placed to the right
       // sits on top of whatever control is next to the target, which on a row
       // of buttons meant obscuring the very option the user must not pick.
@@ -299,6 +441,7 @@ export class Spotlight {
       this.pulse.style.left = `${r.right + pad - 5}px`;
     }
 
+    this.mask.classList.add("on");
     this.ring.classList.add("on");
     this.pulse.classList.add("on");
 

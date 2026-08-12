@@ -11,7 +11,7 @@ import {
 import { LiveDomObserver } from "./dom-observer";
 import type { SessionIdentity } from "./identity";
 import { ShadowOverlay, type OverlayView } from "./overlay";
-import { Spotlight } from "./spotlight";
+import { Spotlight, type TargetResolutionStatus } from "./spotlight";
 
 /**
  * @minute-one/web — the embeddable SDK.
@@ -94,6 +94,8 @@ export class MinuteOne {
       stepCount: config.flow.steps.length,
       attempt: 0,
       missing: [],
+      stage: null,
+      targetNote: null,
       checking: false,
       offeringHandoff: false,
       terminal: null,
@@ -124,7 +126,9 @@ export class MinuteOne {
       },
       this.config.mount
     );
-    this.spotlight = new Spotlight(this.overlay.shadowRoot);
+    this.spotlight = new Spotlight(this.overlay.shadowRoot, (status) =>
+      this.onTargetResolution(status)
+    );
     this.observer = new LiveDomObserver(document);
     this.observer.start();
     this.paint();
@@ -261,14 +265,42 @@ export class MinuteOne {
       handlers: {
         onStateChange: (proof) => this.patch({ proof }),
         onTranscript: (frame) => {
-          if (!frame.final) return;
+          /*
+           * Show interim transcripts, not only finals.
+           *
+           * Omni streams a transcript as a run of partials (final:false) that
+           * end in one final (final:true). Dropping every non-final left the
+           * panel empty while someone was mid-sentence — which reads as "it
+           * isn't hearing me". Each new partial replaces the previous one for
+           * the same speaker (mode is delta/replace but replace-in-place is
+           * correct for both once we only keep the latest); the final promotes
+           * that line and frees the slot for the next utterance.
+           */
+          const prev = this.view.transcript;
+          const last = prev[prev.length - 1];
+          const replaceable =
+            last && last.role === frame.role && last.partial === true;
+          const line = {
+            role: frame.role,
+            text: frame.text,
+            partial: !frame.final,
+          };
+          const transcript = replaceable
+            ? [...prev.slice(0, -1), line]
+            : [...prev.slice(-24), line];
+
           this.patch({
-            transcript: [
-              ...this.view.transcript.slice(-24),
-              { role: frame.role, text: frame.text },
-            ],
+            transcript,
+            // Stage follows who currently holds the floor, updated live rather
+            // than only when a sentence finishes. The drive loop overwrites it
+            // with "Waiting for you" once an instruction lands.
+            stage: frame.role === "assistant" ? "Speaking" : "Listening",
           });
-          if (frame.role === "user") void this.onUserSpeech(frame.text);
+          // Only act on a completed user utterance — a half-formed partial is
+          // not a goal or a "stuck" signal.
+          if (frame.role === "user" && frame.final) {
+            void this.onUserSpeech(frame.text);
+          }
         },
         onToolCall: (call) => void this.onToolCall(call),
         onError: (err) => {
@@ -288,6 +320,7 @@ export class MinuteOne {
     this.patch({
       running: true,
       proof,
+      stage: "Listening",
       connectionError: null,
       status: proof.isRealVoice
         ? "Connected to PyAI"
@@ -342,8 +375,13 @@ export class MinuteOne {
           }));
         }
         case "request_verification": {
+          this.patch({ checking: true, stage: "Checking the page" });
           const result = await c.requestVerification();
-          this.patch({ missing: result?.missing ?? [] });
+          this.patch({
+            checking: false,
+            missing: result?.missing ?? [],
+            stage: result?.passed ? "Waiting for you" : "Correcting",
+          });
           return void (await adapter.respondToTool(call.callId, {
             passed: result?.passed ?? false,
             missing: result?.missing ?? [],
@@ -405,6 +443,7 @@ export class MinuteOne {
       this.spotlight?.show(active?.target);
       this.patch({
         checking: false,
+        stage: "Waiting for you",
         status: "Waiting for you",
         stepIndex: before.stepIndex,
         attempt: before.attempt,
@@ -440,6 +479,15 @@ export class MinuteOne {
           after.state === "recovering"
             ? "Check failed — correcting"
             : "Waiting for you",
+        stage: isTerminal(after.state)
+          ? after.state === "completed"
+            ? "Complete"
+            : null
+          : after.state === "offering_handoff"
+            ? "Phone help available"
+            : after.state === "recovering"
+              ? "Correcting"
+              : "Waiting for you",
         offeringHandoff: after.state === "offering_handoff",
         terminal: isTerminal(after.state) ? after.state : null,
         terminalReason: after.terminalReason,
@@ -457,6 +505,23 @@ export class MinuteOne {
       }
       if (after.state === "offering_handoff") break;
     }
+  }
+
+  /**
+   * The spotlight explains why there is no ring; the overlay repeats it in the
+   * user's terms. Informational only — a missing visual target neither blocks
+   * nor bypasses the verification gate, which reads the page for itself.
+   */
+  private onTargetResolution(status: TargetResolutionStatus) {
+    const note =
+      status === "ambiguous"
+        ? "More than one matching control is visible."
+        : status === "disabled"
+          ? "This control is currently disabled."
+          : status === "missing" || status === "hidden"
+            ? "I cannot find this control yet."
+            : null;
+    if (note !== this.view.targetNote) this.patch({ targetNote: note });
   }
 
   private async acceptHandoff() {
@@ -496,6 +561,8 @@ export class MinuteOne {
       terminal: c.current.state,
       terminalReason: c.current.terminalReason,
       status: `Session ${c.current.state}`,
+      stage: c.current.state === "completed" ? "Complete" : null,
+      targetNote: null,
       proof: this.adapter?.proof ?? null,
     });
   }

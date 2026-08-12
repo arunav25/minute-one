@@ -226,6 +226,10 @@ export class LiveDomObserver {
   private listeners = new Set<(snap: PageSnapshot) => void>();
   private mutationObserver: MutationObserver | null = null;
   private timer: number | null = null;
+  private wrappedPushState: History["pushState"] | null = null;
+  private wrappedReplaceState: History["replaceState"] | null = null;
+  private originalPushState: History["pushState"] | null = null;
+  private originalReplaceState: History["replaceState"] | null = null;
 
   constructor(
     private readonly doc: Document = document,
@@ -245,6 +249,7 @@ export class LiveDomObserver {
     });
     window.addEventListener("popstate", this.schedule);
     window.addEventListener("hashchange", this.schedule);
+    this.wrapHistory();
   }
 
   stop() {
@@ -252,7 +257,69 @@ export class LiveDomObserver {
     this.mutationObserver = null;
     window.removeEventListener("popstate", this.schedule);
     window.removeEventListener("hashchange", this.schedule);
+    this.unwrapHistory();
     if (this.timer !== null) window.clearTimeout(this.timer);
+  }
+
+  /*
+   * SPA routers navigate with pushState/replaceState, which fire no event at
+   * all — popstate only covers the back button. A route-only change (same DOM,
+   * new URL) would otherwise be invisible, and `route_matches` rules would
+   * never see it. Wrapping is the only option the platform offers.
+   *
+   * The originals are kept and restored on stop() — but only if the installed
+   * function is still ours. A host app (or another SDK) may have wrapped on top
+   * of us; restoring over *their* wrapper would strip it, which is exactly the
+   * kind of damage an embedded script must never do. When restoration is not
+   * safe, the wrapper is left in place but goes inert: `active` is cleared, so
+   * it degrades to a pure passthrough and a stopped observer can never be woken
+   * by someone else's navigation. (React StrictMode hits this on every dev
+   * mount — the effect runs twice, so the first observer's wrapper is buried
+   * under the second's and can never be removed, only neutralised.)
+   *
+   * The `mutationObserver` guard in start() already prevents double-wrapping.
+   */
+  private historyHook: { active: boolean } | null = null;
+
+  private wrapHistory() {
+    if (typeof history === "undefined" || this.wrappedPushState) return;
+    this.originalPushState = history.pushState;
+    this.originalReplaceState = history.replaceState;
+    const schedule = this.schedule;
+    const hook = { active: true };
+    this.historyHook = hook;
+
+    const wrap = <T extends History["pushState"]>(original: T): T =>
+      function (this: History, ...args: Parameters<T>) {
+        const result = original.apply(this, args);
+        if (hook.active) schedule();
+        return result;
+      } as T;
+
+    this.wrappedPushState = wrap(this.originalPushState);
+    this.wrappedReplaceState = wrap(this.originalReplaceState);
+    history.pushState = this.wrappedPushState;
+    history.replaceState = this.wrappedReplaceState;
+  }
+
+  private unwrapHistory() {
+    if (typeof history === "undefined") return;
+    // Whatever happens below, this observer must never fire again.
+    if (this.historyHook) this.historyHook.active = false;
+    if (this.wrappedPushState && history.pushState === this.wrappedPushState) {
+      history.pushState = this.originalPushState!;
+    }
+    if (
+      this.wrappedReplaceState &&
+      history.replaceState === this.wrappedReplaceState
+    ) {
+      history.replaceState = this.originalReplaceState!;
+    }
+    this.wrappedPushState = null;
+    this.wrappedReplaceState = null;
+    this.originalPushState = null;
+    this.originalReplaceState = null;
+    this.historyHook = null;
   }
 
   private schedule = () => {
