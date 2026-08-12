@@ -1,0 +1,43 @@
+{
+  "name": "minute-one",
+  "version": "0.1.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Verified conversational onboarding. A voice guide that refuses to advance until the intended result is proven.",
+  "scripts": {
+    "dev": "next dev -p 3200",
+    "demo": "npm run build:sdk && next dev -p 3200",
+    "build": "next build",
+    "start": "next start -p 3200",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "build:sdk": "node scripts/build-sdk.mjs",
+    "dev:https": "npm run dev:cert && npm run build:sdk && next dev -p 3200 --experimental-https --experimental-https-key certificates/localhost-key.pem --experimental-https-cert certificates/localhost.pem",
+    "dev:cert": "node scripts/dev-cert.mjs"
+  },
+  "dependencies": {
+    "@pyai/sdk": "^0.2.3",
+    "next": "16.3.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "@minute-one/core": "*",
+    "@minute-one/web": "*",
+    "@minute-one/app-justcall": "*",
+    "@minute-one/voice-pyai": "*",
+    "@minute-one/voice-mock": "*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.1",
+    "@types/node": "22.10.7",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "typescript": "5.7.3",
+    "vitest": "2.1.8",
+    "esbuild": "^0.24.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}
