@@ -37,7 +37,7 @@ function authorise(
   origin: string | null,
   self: string
 ): { ok: true; origins: string[] } | { ok: false; reason: string } {
-  // The console and the local fixture call this from Minute One's own pages.
+  // The console and the demo product call this from Minute One's own pages.
   // They carry no product key, and a same-origin POST does send an Origin
   // header, so recognising this case by the absence of one is not enough.
   if (!origin) return { ok: true, origins: [self] };
@@ -129,7 +129,18 @@ export async function POST(req: Request) {
     const session = await client.omni.createSession({
       allowedOrigins,
       ttlSeconds: Number(process.env.PYAI_TOKEN_TTL_SECONDS ?? 120),
-      sessionLabel: "minute-one",
+      /*
+       * Binding a console-built Voice Agent goes through the session label.
+       * Per the SDK typings, an agent profile "applies automatically when
+       * connecting with session_label={agent_id}" — that is what supplies the
+       * agent's voice and language. (`agentId` is the deprecated alias and is
+       * ignored whenever a session label is set.)
+       *
+       * Minute One keeps sending its own persona and tools in `configure`, so
+       * the verification contract does not move into the console: an agent can
+       * change how the guide sounds, never what counts as proof.
+       */
+      sessionLabel: process.env.PYAI_AGENT_ID || "minute-one",
     });
 
     return NextResponse.json(
@@ -137,6 +148,13 @@ export async function POST(req: Request) {
         token: session.token,
         url: session.url,
         expiresAt: session.expires_at,
+        /*
+         * The agent profile is resolved at connect time, not at mint time, so
+         * the browser needs the id to put on the connect URL. It is an
+         * identifier, not a credential: it selects a profile and authorises
+         * nothing. The token is still what lets the socket open.
+         */
+        agentId: process.env.PYAI_AGENT_ID || null,
       },
       { headers }
     );

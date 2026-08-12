@@ -33,6 +33,8 @@ type SessionTokenResponse = {
   token: string;
   url: string;
   expiresAt: number;
+  /** A console-built Voice Agent to adopt, or null to run without one. */
+  agentId?: string | null;
 };
 
 export type PyAIAdapterOptions = {
@@ -127,8 +129,23 @@ export class PyAIVoiceAdapter implements VoiceAdapter {
       token: session.token,
       rate: SAMPLE_RATE,
       format: "pcm16",
+      /*
+       * Adopts a Voice Agent built in the PyAI console. The profile resolves
+       * from the connect URL's `session_label` — minting with the same label
+       * does not bind it, which is easy to get wrong because both accept one.
+       */
+      ...(session.agentId ? { sessionLabel: session.agentId } : {}),
       configure: {
-        voice_id: options.voiceId ?? "stock_dorit_en_us",
+        /*
+         * Only pin a voice when one was asked for. An inline value wins for the
+         * session, so hardcoding a default here would silently override the
+         * voice chosen on the agent in the console.
+         */
+        ...(options.voiceId
+          ? { voice_id: options.voiceId }
+          : session.agentId
+            ? {}
+            : { voice_id: "stock_dorit_en_us" }),
         persona: options.persona,
         ...(options.greeting ? { greeting: options.greeting } : {}),
         language: (options.language as "en") ?? "en",

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { SessionController } from "./controller";
 import { InMemoryEventSink } from "./events";
-import type { FlowDefinition, PageSnapshot, SessionEvent } from "./types";
+import type {
+  Budgets,
+  FlowDefinition,
+  PageSnapshot,
+  SessionEvent,
+} from "./types";
 
 /**
  * These tests exist because a failure here would make the demo dishonest:
@@ -48,19 +53,23 @@ const flow: FlowDefinition = {
 };
 
 /** Scripted page states; the controller sees whatever the script says next. */
-function harness(pages: PageSnapshot[]) {
+function harness(
+  pages: PageSnapshot[],
+  over: { flow?: FlowDefinition; budgets?: Partial<Budgets> } = {}
+) {
   const sink = new InMemoryEventSink();
   const spoken: string[] = [];
   let index = 0;
 
   const controller = new SessionController({
     sessionId: "test",
-    flow,
+    flow: over.flow ?? flow,
     budgets: {
       maxSessionSeconds: 300,
       maxVoiceMinutes: 10,
       maxAttemptsPerStep: 3,
       maxTotalSteps: 20,
+      ...over.budgets,
     },
     sink,
     voice: {
@@ -85,6 +94,62 @@ const terminalEvents = (sink: InMemoryEventSink) =>
   (sink.list() as SessionEvent[]).filter((e) => e.type === "session_ended");
 
 describe("session controller", () => {
+  /*
+   * A precondition is checked before the state ever returns to observing, so a
+   * second consecutive failure asks the controller to re-enter the state it is
+   * already in. That threw an IllegalTransitionError and killed the drive loop
+   * part-way through a live session.
+   */
+  it("survives consecutive precondition failures", async () => {
+    const blocked: FlowDefinition = {
+      ...flow,
+      steps: [
+        {
+          ...flow.steps[0],
+          // Never satisfied by the scripted pages.
+          preconditions: { all: [{ kind: "visible_text", value: "NEVER" }] },
+          maxAttempts: 5,
+        },
+      ],
+    };
+    const { controller } = harness([page(), page()], { flow: blocked });
+
+    await controller.start({ provider: "mock" });
+    await controller.selectGoal("test");
+
+    await expect(controller.runStep()).resolves.toBeDefined();
+    // The second call is the one that used to throw.
+    await expect(controller.runStep()).resolves.toBeDefined();
+    await expect(controller.runStep()).resolves.toBeDefined();
+
+    expect(["recovering", "offering_handoff", "partial"]).toContain(
+      controller.current.state
+    );
+  });
+
+  it("applies the session attempt budget, not just the step's own", async () => {
+    const patient: FlowDefinition = {
+      ...flow,
+      // The step is willing to retry five times...
+      steps: [{ ...flow.steps[0], maxAttempts: 5 }],
+    };
+    const { controller, sink } = harness(
+      // The page never reaches /two, so the step can never pass.
+      [page(), page()],
+      // ...but the session says one attempt is the ceiling.
+      { flow: patient, budgets: { maxAttemptsPerStep: 1 } }
+    );
+
+    await controller.start({ provider: "mock" });
+    await controller.selectGoal("test");
+    await controller.runStep();
+
+    expect(controller.current.state).toBe("offering_handoff");
+    expect(
+      (sink.list() as SessionEvent[]).filter((e) => e.type === "handoff_offered")
+    ).toHaveLength(1);
+  });
+
   it("advances only when the postcondition is proven", async () => {
     const { controller, sink } = harness([
       page(),

@@ -60,9 +60,14 @@ Identity is reported with sessions and **never added to the voice context** — 
 guide does not speak your users' names or email addresses back to them.
 
 ```bash
-npm test         # 36 unit tests
+npm test          # 41 unit tests
 npm run typecheck
+npm run e2e       # 5 browser tests, real DOM and overlay
 ```
+
+The browser tests run voice on the mock, requested explicitly with
+`/embed-test?voice=mock` — they have no microphone. Point them at an
+already-running server with `MINUTE_ONE_BASE_URL=https://localhost:3200 npm run e2e`.
 
 ## Architecture
 
@@ -75,9 +80,10 @@ npm run typecheck
                           spotlight, microphone permission, redaction.
 @minute-one/voice-pyai    real voice over PyAI Omni.
 @minute-one/voice-mock    tests, and an explicitly labelled offline demo.
-@minute-one/app-justcall  the first reference integration. Selectors and labels
-                          for one product live here and nowhere else.
 app/, src/server/         console, config and session endpoints, event store.
+app/embed-test/           a generic demo product (Acme Scheduling) with the
+                          guide mounted, for trying it locally and for the
+                          browser tests.
 ```
 
 The journey is **manifest-authoritative**: the flow owns step order, semantic
@@ -89,6 +95,10 @@ than brittle selectors.
 Four classes of evidence are defined: DOM condition, URL condition, host
 application event, backend-confirmed event.
 
+A console-built Voice Agent can supply the voice and language, but never the
+verification contract: Minute One keeps sending its own persona and tools per
+session, so an agent changes how the guide sounds, not what counts as proof.
+
 ## What is real, and what is not
 
 Honesty about state matters more here than a feature list.
@@ -97,6 +107,11 @@ Honesty about state matters more here than a feature list.
 - PyAI Omni voice. Verified from two origins with a live socket: server `hello`
   (protocol 2), `session_started`, real `call_id`. The overlay always shows which
   provider is carrying the audio.
+- Adopting a Voice Agent built in the PyAI console. Set `PYAI_AGENT_ID` and the
+  profile resolves on the call: `hello.agent_id` comes back as that agent
+  instead of `__unknown__`. It binds from the connect URL's `session_label` —
+  minting with the same label does *not* bind it, which is easy to miss because
+  both calls accept one. Leave it empty and everything runs as before.
 - The verification gate. A wrong action stays blocked and names the missing
   evidence; the correction advances it.
 - Spotlight: hugs the target across route and DOM changes, passes clicks through,
@@ -110,8 +125,9 @@ Honesty about state matters more here than a feature list.
 - The product store is a JSON file. Single tenant, unauthenticated.
 
 **Assumed**
-- `packages/app-justcall/src/landmarks.ts` — every value is marked ASSUMED with
-  provenance. See `LABELS_TO_CONFIRM.md`.
+- The JustCall journey's labels and success text live in the console-authored
+  product, not in code. They were read off the real `get-started.php` page; if
+  that page changes, the journey is edited in the console, not the repo.
 
 **Not built**
 - Microphone capture has never been exercised in an automated run; the sandbox
@@ -119,6 +135,8 @@ Honesty about state matters more here than a feature list.
   distinct notice and no offer of demo mode.
 - Host-event and backend-event evidence are typed extension points. Only DOM and
   URL conditions are implemented.
+- **No telephony.** The handoff card shows a support number and ends the session
+  as partial. Nothing dials, and the wording says so.
 - No crawler, no test-account login, no auth, no billing, no multi-tenancy, no
   hosted CDN, no visual flow editor, no browser extension.
 
@@ -130,9 +148,12 @@ Honesty about state matters more here than a feature list.
 
 ## Reference integration
 
-`app/get-started.php` in the JustCall monolith loads the script, gated to a
-`*.justcall.local` host and to a key present in `localStorage`, so nothing is
-committed and customers cannot be affected. Two things a real host integration
+There is no localhost JustCall lookalike — the real integration runs on the
+actual app. `app/get-started.php` in the JustCall monolith loads the script,
+gated to a `*.justcall.local` host and to a key present in `localStorage`, so
+nothing is committed and customers cannot be affected. The generic Acme
+Scheduling page at `/embed-test` is the throwaway surface for trying the guide
+without that stack. Two things a real host integration
 runs into, both worth knowing before you try your own:
 
 - **Content-Security-Policy.** The host's `script-src` and `connect-src` must

@@ -12,7 +12,7 @@ export default function ReportPage() {
             Where new users get stuck, and whether guidance recovered them.
           </p>
         </div>
-        <a className="rp-link" href="/fixture">
+        <a className="rp-link" href="/embed-test">
           ← Back to the demo
         </a>
       </header>

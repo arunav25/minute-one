@@ -224,13 +224,22 @@ export class ShadowOverlay {
       : "";
 
     const handoffBlock = view.offeringHandoff
-      ? `<div class="card" data-testid="handoff-card">
-           <strong>Want help by phone?</strong>
-           <p class="muted">We can start a new phone session on ${esc(view.helpNumber)}.
-           Your session reference and current step go with it. This is a new call, not a transfer.</p>
+      ? /*
+         * Deliberately does not offer to call anybody.
+         *
+         * This used to read "Yes, call me" and promise a new phone session.
+         * Nothing dials: accepting records the handoff and ends the session as
+         * partial. Until a telephony provider is actually wired up, the honest
+         * offer is the number and the session reference to quote.
+         */
+        `<div class="card" data-testid="handoff-card">
+           <strong>Prefer to talk to a person?</strong>
+           <p class="muted">Support is on ${esc(view.helpNumber)}. Quote your session
+           reference and they can pick up from the step you are on — the report records
+           where it stopped. Minute One does not place the call for you.</p>
            <div class="actions">
-             <button class="primary" data-action="accept">Yes, call me</button>
-             <button class="ghost" data-action="decline">No thanks</button>
+             <button class="primary" data-action="accept">Show phone support</button>
+             <button class="ghost" data-action="decline">Keep trying</button>
            </div>
          </div>`
       : "";

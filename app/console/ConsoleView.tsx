@@ -152,7 +152,7 @@ export function ConsoleView() {
         </nav>
 
         <div className="cn-side-foot">
-          <a href="/fixture">Sandbox page</a>
+          <a href="/embed-test">Demo product</a>
           <a href="/report">Full report</a>
         </div>
       </aside>

@@ -422,10 +422,27 @@ export class SessionController {
     result: VerificationResult
   ): Promise<SessionState> {
     this.attempt += 1;
-    this.transition("recovering");
+    /*
+     * Already recovering when a second failure lands — which is exactly what a
+     * precondition that keeps failing produces, because the check runs before
+     * the state ever returns to observing. Re-entering the state it is already
+     * in is not a legal transition, so asserting it here threw and killed the
+     * drive loop mid-session.
+     */
+    if (this.state !== "recovering") this.transition("recovering");
+
+    /*
+     * Both caps apply and the tighter one wins. The step declares its own
+     * patience; the session budget is the ceiling across the whole run, and
+     * was previously declared, set by callers, and then never read.
+     */
+    const attemptCap = Math.min(
+      step.maxAttempts,
+      this.opts.budgets.maxAttemptsPerStep
+    );
 
     if (
-      attemptsExhausted(this.attempt, step.maxAttempts) ||
+      attemptsExhausted(this.attempt, attemptCap) ||
       this.stuckSignals.length >= 3
     ) {
       this.transition("offering_handoff");
