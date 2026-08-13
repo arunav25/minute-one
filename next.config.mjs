@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: "standalone",
   /** Workspace packages ship TypeScript source; Next compiles them. */
   transpilePackages: [
     "@minute-one/core",

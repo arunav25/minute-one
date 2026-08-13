@@ -19,11 +19,11 @@ function isLocal(origin: string) {
 }
 
 /** A product key selects config; an origin allowlist authorises voice spend. */
-function authorise(
+async function authorise(
   key: string | null,
   origin: string | null,
   self: string
-): { ok: true } | { ok: false; reason: string } {
+): Promise<{ ok: true } | { ok: false; reason: string }> {
   if (!origin || origin === self) return { ok: true };
   if (!key) {
     return {
@@ -32,7 +32,7 @@ function authorise(
     };
   }
 
-  const product = getProductByKey(key);
+  const product = await getProductByKey(key);
   if (!product) return { ok: false, reason: "unknown product key" };
   if (product.allowedOrigins.length > 0) {
     return product.allowedOrigins.includes(origin)
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
   }
 
   const url = new URL(req.url);
-  const decision = authorise(url.searchParams.get("key"), origin, url.origin);
+  const decision = await authorise(url.searchParams.get("key"), origin, url.origin);
   if (!decision.ok) {
     return NextResponse.json(
       { error: decision.reason, code: "origin_not_allowed" },

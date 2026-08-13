@@ -23,6 +23,11 @@ export function embeddingConfigured(): boolean {
 }
 
 export async function embedQuery(text: string): Promise<number[]> {
+  return (await embedBatch([text.slice(0, 8000)]))[0];
+}
+
+/** Embed several texts in one request — used when training console notes. */
+export async function embedBatch(texts: string[]): Promise<number[][]> {
   const key = apiKey();
   if (!key) {
     throw new Error(
@@ -35,7 +40,7 @@ export async function embedQuery(text: string): Promise<number[]> {
       "content-type": "application/json",
       authorization: `Bearer ${key}`,
     },
-    body: JSON.stringify({ model: MODEL, input: text.slice(0, 8000) }),
+    body: JSON.stringify({ model: MODEL, input: texts }),
   });
   if (!res.ok) {
     throw new Error(
@@ -43,5 +48,5 @@ export async function embedQuery(text: string): Promise<number[]> {
     );
   }
   const json = (await res.json()) as { data: Array<{ embedding: number[] }> };
-  return json.data[0].embedding;
+  return json.data.map((d) => d.embedding);
 }

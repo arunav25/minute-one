@@ -122,13 +122,13 @@ function compileStep(draft: Product["steps"][number], index: number): FlowStep {
   };
 }
 
-export function compileProduct(product: Product): RuntimeConfig {
+export async function compileProduct(product: Product): Promise<RuntimeConfig> {
   const mode: RuntimeConfig["mode"] =
     product.steps.length > 0 ? "guided" : "answer";
 
   // Retrieve at answer time only when there is an ingested corpus to retrieve
   // from. Otherwise fall back to stuffing the hand-written notes into the prompt.
-  const knowledgeSearch = hasKnowledgeBase(product.key);
+  const knowledgeSearch = await hasKnowledgeBase(product.key);
 
   const flow: FlowDefinition | null =
     mode === "guided"

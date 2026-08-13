@@ -16,6 +16,27 @@ export type KnowledgeEntry = {
   title: string;
   body: string;
   updatedAt: string;
+  kind?: "text" | "qa" | "file";
+};
+
+/** One row in the Data sources list — a note or an imported article. */
+export type DataSource = {
+  id: string;
+  kind: "text" | "qa" | "file" | "article";
+  title: string;
+  url?: string;
+  bytes: number;
+  updatedAt: string | null;
+  trained: boolean;
+  trainedAt: string | null;
+  chunks: number;
+};
+
+export type SourcesData = {
+  sources: DataSource[];
+  lastTrainedAt: string | null;
+  totalBytes: number;
+  canTrain: boolean;
 };
 
 export type JourneyStep = {
@@ -105,6 +126,47 @@ export function useProducts() {
     refresh,
     run,
   };
+}
+
+/**
+ * The Data sources panel's view: console notes merged with what the semantic
+ * index actually holds, plus when it was last trained.
+ */
+export function useSources(productId: string | null) {
+  const [data, setData] = useState<SourcesData | null>(null);
+
+  const reload = useCallback(async () => {
+    if (!productId) {
+      setData(null);
+      return;
+    }
+    try {
+      const res = await fetch(
+        `/api/minute-one/knowledge/sources?productId=${encodeURIComponent(productId)}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) setData((await res.json()) as SourcesData);
+    } catch {
+      // Leave the previous view; the panel states when it is empty.
+    }
+  }, [productId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  return { data, reload };
+}
+
+export async function trainAgent(productId: string) {
+  const res = await fetch("/api/minute-one/knowledge/train", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ productId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? `training failed (${res.status})`);
+  return data as { trainedNotes: number; totalChunks: number; trainedAt: string };
 }
 
 /** Whatever the host application told us about who was in a session. */

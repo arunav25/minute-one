@@ -13,19 +13,29 @@
  *   2. Strip the HTML to clean text.
  *   3. Split into overlapping chunks small enough to embed and to quote back.
  *   4. Embed each chunk (OpenAI text-embedding-3-small by default).
- *   5. Append {productKey, articleId, title, url, chunk, text, embedding} to
- *      .data/knowledge/<productKey>.ndjson — one JSON object per line.
+ *   5. Upsert {productKey, articleId, title, url, chunk, text, embedding} into
+ *      the NeonDB `knowledge_chunks` table (Postgres + pgvector).
  *
  * The embeddings are NOT training. They are a lookup index: at query time the
  * search endpoint embeds the user's question and returns the nearest chunks for
  * the LLM to ground its answer on. Deepgram/PyAI never see the whole corpus.
  *
+ * Requires in the environment (loaded from .env.local automatically):
+ *   OPENAI_API_KEY   (or EMBEDDING_API_KEY)  — to embed
+ *   DATABASE_URL     — Neon connection string, to store
+ *
  * Cost: ~1,185 JustCall articles is roughly 1M tokens ≈ $0.02 on
- * text-embedding-3-small. Re-running overwrites the product's file.
+ * text-embedding-3-small. Re-running replaces that product's rows.
  */
-import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { open } from "node:fs/promises";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import nextEnv from "@next/env"; // CJS module — no named exports
+const { loadEnvConfig } = nextEnv;
+import { neon } from "@neondatabase/serverless";
+
+// A bare `node` process does not read .env.local (that is a Next.js behaviour).
+// Load it the same way Next does so OPENAI_API_KEY and DATABASE_URL are present.
+loadEnvConfig(process.cwd(), true, { info: () => {}, error: console.error });
 
 const argv = process.argv.slice(2);
 const flags = argv.filter((a) => a.startsWith("--"));
@@ -69,16 +79,27 @@ const EMBEDDING_KEY = process.env.EMBEDDING_API_KEY || process.env.OPENAI_API_KE
 
 if (!EMBEDDING_KEY) {
   console.error(
-    "Set OPENAI_API_KEY (or EMBEDDING_API_KEY) in the environment. Semantic\n" +
-      "search needs an embedding provider — Deepgram and PyAI do not embed."
+    "Set OPENAI_API_KEY (or EMBEDDING_API_KEY) in .env.local. Semantic search\n" +
+      "needs an embedding provider — Deepgram and PyAI do not embed."
   );
   process.exit(1);
 }
 
+if (!process.env.DATABASE_URL) {
+  console.error(
+    "Set DATABASE_URL in .env.local to your Neon connection string. The\n" +
+      "knowledge base is stored in Postgres so Vercel can read it at answer time."
+  );
+  process.exit(1);
+}
+const sql = neon(process.env.DATABASE_URL);
+
 /** Find the markdown directory whether given the archive root or the md folder. */
 function findMarkdownDir(dir) {
   const d = resolve(dir.replace(/^~/, process.env.HOME ?? "~"));
-  const candidates = [d, join(d, "historical", "markdown"), join(d, "markdown")];
+  // Article folders first: the archive root may hold a stray README.md, which
+  // must not win over the actual corpus.
+  const candidates = [join(d, "historical", "markdown"), join(d, "markdown"), d];
   for (const c of candidates) {
     if (existsSync(c) && readdirSync(c).some((f) => f.endsWith(".md"))) return c;
   }
@@ -169,10 +190,31 @@ if (includeIds) {
   if (missing.length) console.warn(`  no file for ids: ${missing.join(", ")}`);
 }
 
-const outDir = join(process.cwd(), ".data", "knowledge");
-mkdirSync(outDir, { recursive: true });
-const outPath = join(outDir, `${productKey}.ndjson`);
-const out = await open(outPath, "w");
+// Make sure pgvector and the table exist. Idempotent, so re-running is safe.
+await sql`CREATE EXTENSION IF NOT EXISTS vector`;
+await sql`
+  CREATE TABLE IF NOT EXISTS knowledge_chunks (
+    id          BIGSERIAL PRIMARY KEY,
+    product_key TEXT NOT NULL,
+    article_id  TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    url         TEXT NOT NULL DEFAULT '',
+    chunk       INT  NOT NULL DEFAULT 0,
+    text        TEXT NOT NULL,
+    embedding   vector(1536) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`;
+// Older tables predate created_at; the console's source list needs it.
+await sql`ALTER TABLE knowledge_chunks ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT now()`;
+await sql`CREATE INDEX IF NOT EXISTS knowledge_chunks_product_idx ON knowledge_chunks (product_key)`;
+// HNSW cosine index for fast nearest-neighbour once the corpus grows. Optional:
+// search works without it (sequential scan), so an older pgvector must not block
+// ingest.
+try {
+  await sql`CREATE INDEX IF NOT EXISTS knowledge_chunks_embedding_idx ON knowledge_chunks USING hnsw (embedding vector_cosine_ops)`;
+} catch (err) {
+  console.warn(`  (skipping HNSW index: ${err?.message ?? err})`);
+}
 
 // Collect chunks, then embed in batches to stay well under request limits.
 const pending = [];
@@ -198,19 +240,28 @@ for (const file of files) {
 }
 console.log(`${articleCount} articles → ${pending.length} chunks; embedding…`);
 
+// Re-ingest replaces this product's rows so stale chunks never linger.
+await sql`DELETE FROM knowledge_chunks WHERE product_key = ${productKey}`;
+
 const BATCH = 96;
 let done = 0;
 for (let i = 0; i < pending.length; i += BATCH) {
   const slice = pending.slice(i, i + BATCH);
   const vectors = await embedBatch(slice.map((s) => s.text));
-  for (let j = 0; j < slice.length; j++) {
-    await out.write(JSON.stringify({ ...slice[j], embedding: vectors[j] }) + "\n");
-  }
+
+  // One parameterised INSERT per chunk, sent as a single transaction per batch.
+  const inserts = slice.map((s, j) => {
+    const vec = `[${vectors[j].join(",")}]`;
+    return sql`
+      INSERT INTO knowledge_chunks (product_key, article_id, title, url, chunk, text, embedding)
+      VALUES (${s.productKey}, ${s.articleId}, ${s.title}, ${s.url}, ${s.chunk}, ${s.text}, ${vec}::vector)`;
+  });
+  await sql.transaction(inserts);
+
   done += slice.length;
   if (done % (BATCH * 5) === 0 || done === pending.length) {
-    console.log(`  embedded ${done}/${pending.length}`);
+    console.log(`  stored ${done}/${pending.length}`);
   }
 }
-await out.close();
-console.log(`wrote ${outPath} (${pending.length} chunks for ${productKey})`);
-console.log("restart the dev server so the knowledge store loads it.");
+console.log(`stored ${pending.length} chunks for ${productKey} in NeonDB.`);
+console.log("no restart needed — the search route reads Neon live.");

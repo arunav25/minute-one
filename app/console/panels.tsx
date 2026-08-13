@@ -5,6 +5,9 @@ import type { ReportData } from "@minute-one/core";
 import {
   api,
   setupState,
+  trainAgent,
+  useSources,
+  type DataSource,
   type JourneyStep,
   type Product,
   type SessionIdentity,
@@ -185,40 +188,180 @@ export function SetupPanel({
 /* Knowledge                                                                  */
 /* -------------------------------------------------------------------------- */
 
+const SOURCE_BADGE: Record<DataSource["kind"], string> = {
+  text: "Text",
+  qa: "Q&A",
+  file: "File",
+  article: "Website",
+};
+
+function formatBytes(n: number) {
+  if (n >= 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
+  return `${n} B`;
+}
+
+function formatWhen(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric" })} at ${d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function timeAgo(iso: string | null) {
+  if (!iso) return "never";
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 export function KnowledgePanel({ product, busy, run }: PanelProps) {
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
+  const { data, reload } = useSources(product.id);
+  const [drawer, setDrawer] = useState<null | "text" | "qa" | "file">(null);
+  const [search, setSearch] = useState("");
+  const [training, setTraining] = useState(false);
+  const [trainNote, setTrainNote] = useState<string | null>(null);
+
+  const sources = (data?.sources ?? []).filter(
+    (s) => !search || s.title.toLowerCase().includes(search.toLowerCase())
+  );
+  const untrained = (data?.sources ?? []).filter((s) => !s.trained).length;
+
+  const retrain = () =>
+    void run(async () => {
+      setTraining(true);
+      setTrainNote(null);
+      try {
+        const r = await trainAgent(product.id);
+        setTrainNote(
+          `Trained ${r.trainedNotes} source${r.trainedNotes === 1 ? "" : "s"} into ${r.totalChunks} chunks.`
+        );
+        await reload();
+      } finally {
+        setTraining(false);
+      }
+    });
 
   return (
     <>
-      <PanelHead
-        title="Knowledge"
-        lede="Everything the guide is allowed to know. It answers from here and says it does not know rather than inventing an answer."
-      />
+      <div className="cn-src-head">
+        <PanelHead
+          title="Data sources"
+          lede="Everything the guide can retrieve at answer time. Train after adding sources so the voice agent can search them."
+        />
+        <div className="cn-src-train">
+          <span className="cn-muted">
+            Last trained {timeAgo(data?.lastTrainedAt ?? null)}
+          </span>
+          <button
+            className="cn-primary"
+            data-testid="retrain-agent"
+            disabled={busy || training || !data?.canTrain}
+            title={
+              data?.canTrain === false
+                ? "Set DATABASE_URL and OPENAI_API_KEY to enable training"
+                : undefined
+            }
+            onClick={retrain}
+          >
+            {training ? "Training…" : "Retrain agent"}
+          </button>
+        </div>
+      </div>
 
-      {product.knowledge.length === 0 ? (
+      {trainNote && <div className="cn-note">{trainNote}</div>}
+      {data?.canTrain === false && (
+        <div className="cn-note">
+          Semantic training is off: set <code>DATABASE_URL</code> and{" "}
+          <code>OPENAI_API_KEY</code> on the server. Sources still reach the
+          guide as prompt context.
+        </div>
+      )}
+
+      <div className="cn-src-cards">
+        <button className="cn-src-card" onClick={() => setDrawer("file")}>
+          <span className="cn-src-card-icon">📄</span> Add files
+        </button>
+        <button className="cn-src-card" onClick={() => setDrawer("text")}>
+          <span className="cn-src-card-icon">✏️</span> Add text snippet
+        </button>
+        <button className="cn-src-card" onClick={() => setDrawer("qa")}>
+          <span className="cn-src-card-icon">💬</span> Add Q&amp;A
+        </button>
+        <div className="cn-src-card cn-src-card-static" title="Import a help-center archive with scripts/ingest-knowledge.mjs">
+          <span className="cn-src-card-icon">🌐</span> Website import
+          <span className="cn-src-card-hint">via CLI</span>
+        </div>
+      </div>
+
+      <div className="cn-src-toolbar">
+        <input
+          className="cn-src-search"
+          placeholder="Search…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <span className="cn-muted">
+          {untrained > 0 && `${untrained} untrained · `}
+          Total size: <strong>{formatBytes(data?.totalBytes ?? 0)}</strong>
+        </span>
+      </div>
+
+      {sources.length === 0 ? (
         <div className="cn-empty">
-          <h3>Nothing here yet</h3>
-          <p>The guide will tell users it has no information about this product.</p>
+          <h3>No sources yet</h3>
+          <p>
+            Add a text snippet, a Q&amp;A pair, or a file — or import a
+            help-center archive from the CLI. The guide answers only from what
+            is here.
+          </p>
         </div>
       ) : (
-        <ul className="cn-kb">
-          {product.knowledge.map((k) => (
-            <li key={k.id}>
-              <div>
-                <strong>{k.title}</strong>
-                <p>{k.body}</p>
+        <ul className="cn-src-list" data-testid="source-list">
+          {sources.map((s) => (
+            <li key={s.id} className="cn-src-row">
+              <div className="cn-src-row-main">
+                <strong>{s.title}</strong>
+                <span className="cn-muted">
+                  {formatWhen(s.updatedAt)} · {formatBytes(s.bytes)}
+                  {s.chunks > 0 && ` · ${s.chunks} chunk${s.chunks === 1 ? "" : "s"}`}
+                </span>
               </div>
+              <span
+                className={`cn-src-status ${s.trained ? "trained" : "untrained"}`}
+                title={
+                  s.trained
+                    ? `In the semantic index since ${formatWhen(s.trainedAt)}`
+                    : "Not in the semantic index yet — press Retrain agent"
+                }
+              >
+                {s.trained ? "Trained" : "Untrained"}
+              </span>
+              <span className={`cn-src-badge kind-${s.kind}`}>
+                {SOURCE_BADGE[s.kind]}
+              </span>
               <button
                 className="cn-ghost"
                 onClick={() =>
-                  void run(() =>
-                    api({
-                      action: "remove-knowledge",
-                      productId: product.id,
-                      entryId: k.id,
-                    })
-                  )
+                  void run(async () => {
+                    await api(
+                      s.kind === "article"
+                        ? {
+                            action: "remove-article",
+                            productId: product.id,
+                            articleId: s.id,
+                          }
+                        : {
+                            action: "remove-knowledge",
+                            productId: product.id,
+                            entryId: s.id,
+                          }
+                    );
+                    await reload();
+                  })
                 }
               >
                 Remove
@@ -228,45 +371,137 @@ export function KnowledgePanel({ product, busy, run }: PanelProps) {
         </ul>
       )}
 
-      <form
-        className="cn-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!title.trim() || !body.trim()) return;
-          void run(async () => {
-            await api({
-              action: "add-knowledge",
-              productId: product.id,
-              title,
-              body,
+      {drawer && (
+        <SourceDrawer
+          kind={drawer}
+          busy={busy}
+          onClose={() => setDrawer(null)}
+          onAdd={async (title, body, kind) => {
+            const ok = await run(async () => {
+              await api({
+                action: "add-knowledge",
+                productId: product.id,
+                title,
+                body,
+                kind,
+              });
+              await reload();
             });
-            setTitle("");
-            setBody("");
-          });
-        }}
-      >
-        <h3>Add a note</h3>
-        <label htmlFor="kb-title">Question or topic</label>
-        <input
-          id="kb-title"
-          data-testid="kb-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="How do I invite my team?"
+            if (ok) setDrawer(null);
+          }}
         />
-        <label htmlFor="kb-body">What the guide should say</label>
-        <textarea
-          id="kb-body"
-          data-testid="kb-body"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Choose Invite your team on the Get Started page, enter an email, pick a role, then choose Invite."
-        />
-        <button className="cn-primary" data-testid="add-knowledge" disabled={busy}>
-          Add to knowledge
-        </button>
-      </form>
+      )}
     </>
+  );
+}
+
+/**
+ * Right-hand drawer for adding a source, one form per kind. Q&A pairs are
+ * stored as title=question, body=answer; files are read in the browser and
+ * stored as their text.
+ */
+function SourceDrawer({
+  kind,
+  busy,
+  onClose,
+  onAdd,
+}: {
+  kind: "text" | "qa" | "file";
+  busy: boolean;
+  onClose: () => void;
+  onAdd: (title: string, body: string, kind: "text" | "qa" | "file") => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [fileName, setFileName] = useState<string | null>(null);
+  const heading =
+    kind === "text" ? "Add text snippet" : kind === "qa" ? "Add Q&A" : "Add file";
+
+  return (
+    <div className="cn-drawer-overlay" onClick={onClose}>
+      <aside className="cn-drawer" onClick={(e) => e.stopPropagation()}>
+        <header className="cn-drawer-head">
+          <h3>{heading}</h3>
+          <button className="cn-ghost" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </header>
+
+        <form
+          className="cn-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!title.trim() || !body.trim()) return;
+            void onAdd(title, body, kind);
+          }}
+        >
+          {kind === "file" ? (
+            <>
+              <label htmlFor="src-file">Markdown or text file (max 1 MB)</label>
+              <input
+                id="src-file"
+                type="file"
+                accept=".md,.markdown,.txt"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.size > 1024 * 1024) {
+                    setFileName(`${file.name} is too large`);
+                    return;
+                  }
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setTitle(file.name.replace(/\.(md|markdown|txt)$/i, ""));
+                    setBody(String(reader.result ?? ""));
+                    setFileName(file.name);
+                  };
+                  reader.readAsText(file);
+                }}
+              />
+              {fileName && <p className="cn-muted">{fileName}</p>}
+            </>
+          ) : (
+            <>
+              <label htmlFor="kb-title">
+                {kind === "qa" ? "Question" : "Title"}
+              </label>
+              <input
+                id="kb-title"
+                data-testid="kb-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={
+                  kind === "qa"
+                    ? "How do I buy a phone number?"
+                    : "Ex: Refund requests"
+                }
+              />
+              <label htmlFor="kb-body">
+                {kind === "qa" ? "Answer" : "Enter your text"}
+              </label>
+              <textarea
+                id="kb-body"
+                data-testid="kb-body"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder={
+                  kind === "qa"
+                    ? "Open the Phone Numbers section, choose Add Number, pick a country, then confirm."
+                    : "What the guide should know, in plain language."
+                }
+              />
+            </>
+          )}
+          <button
+            className="cn-primary"
+            data-testid="add-knowledge"
+            disabled={busy || !title.trim() || !body.trim()}
+          >
+            {heading}
+          </button>
+        </form>
+      </aside>
+    </div>
   );
 }
 

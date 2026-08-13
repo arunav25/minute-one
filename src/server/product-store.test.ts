@@ -13,6 +13,9 @@ async function freshStore(seed?: unknown) {
     writeFileSync(join(dir, "products.json"), JSON.stringify(seed));
   }
   process.env.MINUTE_ONE_DATA_DIR = dir;
+  // Force the file backend regardless of the developer's environment, so these
+  // tests never reach for a real database.
+  delete process.env.DATABASE_URL;
   vi.resetModules();
   return import("./product-store");
 }
@@ -23,17 +26,17 @@ beforeEach(() => {
 
 test("updating one field leaves the others alone", async () => {
   const store = await freshStore();
-  const product = store.createProduct("Acme");
-  store.updateProduct(product.id, { allowedOrigins: ["https://acme.test"] });
+  const product = await store.createProduct("Acme");
+  await store.updateProduct(product.id, { allowedOrigins: ["https://acme.test"] });
 
   // A journey edit sends `undefined` for every field it does not touch.
-  store.updateProduct(product.id, {
+  await store.updateProduct(product.id, {
     goal: "Invite your team",
     name: undefined,
     allowedOrigins: undefined,
   } as Parameters<typeof store.updateProduct>[1]);
 
-  const after = store.getProduct(product.id)!;
+  const after = (await store.getProduct(product.id))!;
   expect(after.goal).toBe("Invite your team");
   expect(after.allowedOrigins).toEqual(["https://acme.test"]);
   expect(after.name).toBe("Acme");
@@ -41,18 +44,18 @@ test("updating one field leaves the others alone", async () => {
 
 test("a key stays locked to its origins across an update", async () => {
   const store = await freshStore();
-  const product = store.createProduct("Acme");
-  store.updateProduct(product.id, { allowedOrigins: ["https://acme.test"] });
-  store.updateProduct(product.id, { steps: [] });
+  const product = await store.createProduct("Acme");
+  await store.updateProduct(product.id, { allowedOrigins: ["https://acme.test"] });
+  await store.updateProduct(product.id, { steps: [] });
 
-  expect(store.getProductByKey(product.key)!.allowedOrigins).toEqual([
+  expect((await store.getProductByKey(product.key))!.allowedOrigins).toEqual([
     "https://acme.test",
   ]);
 });
 
 test("a record missing fields loads with safe defaults", async () => {
   const store = await freshStore([{ id: "prod_x", key: "mo_pk_x" }]);
-  const product = store.getProductByKey("mo_pk_x")!;
+  const product = (await store.getProductByKey("mo_pk_x"))!;
 
   // Readers index into these directly; undefined would throw or, for
   // allowedOrigins, read as "any origin may use this key".

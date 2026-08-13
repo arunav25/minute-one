@@ -41,13 +41,13 @@ export async function GET(req: Request) {
   }
   // A product key is public, but scoping search to a real product stops one
   // product's key from reading another's corpus.
-  if (!getProductByKey(key)) {
+  if (!(await getProductByKey(key))) {
     return NextResponse.json({ error: "unknown product key" }, { status: 404, headers });
   }
 
   try {
     const queryEmbedding = await embedQuery(q);
-    const hits = searchKnowledge(key, queryEmbedding, k);
+    const hits = await searchKnowledge(key, queryEmbedding, k);
     return NextResponse.json({ query: q, hits }, { headers });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "missing product key" }, { status: 400 });
   }
 
-  const product = getProductByKey(key);
+  const product = await getProductByKey(key);
   if (!product) {
     return NextResponse.json({ error: "unknown product key" }, { status: 404 });
   }
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     }
   }
 
-  const config = compileProduct(product);
+  const config = await compileProduct(product);
 
   // The script is loaded onto other origins, so the config has to be readable
   // cross-origin. It contains no secret.

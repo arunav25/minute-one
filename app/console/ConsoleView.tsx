@@ -33,7 +33,7 @@ const SECTIONS = [
   {
     group: "Configure",
     items: [
-      { id: "knowledge", label: "Knowledge" },
+      { id: "knowledge", label: "Data sources" },
       { id: "journey", label: "Journey" },
       { id: "install", label: "Install snippet" },
       { id: "settings", label: "Settings" },

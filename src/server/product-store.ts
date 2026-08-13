@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { dbConfigured, getSql } from "./db";
 
 /**
  * Products and their knowledge bases.
@@ -10,9 +11,12 @@ import { dirname, join } from "node:path";
  * presents to fetch that context, so one script can serve any number of host
  * applications without a rebuild.
  *
- * Persisted to a JSON file rather than a database. Beta scope: keys have to
- * survive a dev-server restart, nothing more. Not multi-tenant, no auth — see
- * DISCLOSURE.md.
+ * Two backends, one code path. When DATABASE_URL is set (Vercel, and any local
+ * dev that wants it) products live in NeonDB, which is the only thing that
+ * survives on a serverless filesystem. Without it, they fall back to a local
+ * JSON file so `npm test` and offline dev still work with no database. The
+ * mutation semantics are identical either way — only `readAll`/`writeAll`
+ * differ — so there is one place for the rules and one place for the storage.
  */
 
 export type KnowledgeEntry = {
@@ -20,6 +24,8 @@ export type KnowledgeEntry = {
   title: string;
   body: string;
   updatedAt: string;
+  /** How the source was added: a typed note, a Q&A pair, or an uploaded file. */
+  kind?: "text" | "qa" | "file";
 };
 
 export type JourneyStepDraft = {
@@ -51,21 +57,19 @@ export type Product = {
 };
 
 // `MINUTE_ONE_DATA_DIR` exists so tests can write somewhere disposable instead
-// of the working copy's `.data`.
+// of the working copy's `.data`. Only used in the file fallback.
 const FILE = join(
   process.env.MINUTE_ONE_DATA_DIR ?? join(process.cwd(), ".data"),
   "products.json"
 );
 
-let cache: Product[] | null = null;
-
 /**
- * Fill in anything the stored record is missing.
+ * Fill in anything a stored record is missing.
  *
- * The file is hand-editable and has outlived a couple of shape changes, so a
- * record can arrive without every field. Readers must not have to defend
- * themselves — in particular `allowedOrigins`, where a missing value read as
- * "no restriction" would quietly unlock a key.
+ * Records have outlived a couple of shape changes, so one can arrive without
+ * every field. Readers must not have to defend themselves — in particular
+ * `allowedOrigins`, where a missing value read as "no restriction" would
+ * quietly unlock a key.
  */
 function normalise(raw: Partial<Product>): Product {
   return {
@@ -81,37 +85,74 @@ function normalise(raw: Partial<Product>): Product {
   };
 }
 
-function load(): Product[] {
-  if (cache) return cache;
-  try {
-    const raw = JSON.parse(readFileSync(FILE, "utf8")) as Partial<Product>[];
-    cache = Array.isArray(raw) ? raw.map(normalise) : [];
-  } catch {
-    cache = [];
-  }
-  return cache;
+async function ensureProductsTable(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS products (
+      id         TEXT PRIMARY KEY,
+      key        TEXT UNIQUE NOT NULL,
+      data       JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )`;
 }
 
-function persist() {
+/** The whole product set. The store is small, so read-all/write-all is fine. */
+async function readAll(): Promise<Product[]> {
+  if (dbConfigured()) {
+    try {
+      const sql = getSql();
+      const rows = (await sql`
+        SELECT data FROM products ORDER BY data->>'createdAt'`) as Array<{
+        data: Partial<Product>;
+      }>;
+      return rows.map((r) => normalise(r.data));
+    } catch {
+      // Table not created yet (nothing written), or DB briefly unreachable.
+      return [];
+    }
+  }
+  try {
+    const raw = JSON.parse(readFileSync(FILE, "utf8")) as Partial<Product>[];
+    return Array.isArray(raw) ? raw.map(normalise) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeAll(products: Product[]): Promise<void> {
+  if (dbConfigured()) {
+    const sql = getSql();
+    await ensureProductsTable();
+    // Replace the set atomically. At beta scale the table is tiny, so a full
+    // rewrite is simpler and safer than tracking per-row diffs.
+    const inserts = products.map(
+      (p) =>
+        sql`INSERT INTO products (id, key, data)
+            VALUES (${p.id}, ${p.key}, ${JSON.stringify(p)}::jsonb)`
+    );
+    await sql.transaction([sql`DELETE FROM products`, ...inserts]);
+    return;
+  }
   mkdirSync(dirname(FILE), { recursive: true });
-  writeFileSync(FILE, JSON.stringify(cache ?? [], null, 2));
+  writeFileSync(FILE, JSON.stringify(products, null, 2));
 }
 
 const id = (prefix: string) => `${prefix}_${randomBytes(6).toString("hex")}`;
 
-export function listProducts(): Product[] {
-  return load().map((p) => ({ ...p }));
+export async function listProducts(): Promise<Product[]> {
+  return (await readAll()).map((p) => ({ ...p }));
 }
 
-export function getProduct(productId: string): Product | undefined {
-  return load().find((p) => p.id === productId);
+export async function getProduct(productId: string): Promise<Product | undefined> {
+  return (await readAll()).find((p) => p.id === productId);
 }
 
-export function getProductByKey(key: string): Product | undefined {
-  return load().find((p) => p.key === key);
+export async function getProductByKey(key: string): Promise<Product | undefined> {
+  return (await readAll()).find((p) => p.key === key);
 }
 
-export function createProduct(name: string): Product {
+export async function createProduct(name: string): Promise<Product> {
+  const products = await readAll();
   const product: Product = {
     id: id("prod"),
     // `mo_pk_` — public key. Safe in a page: it selects a product's context,
@@ -125,16 +166,17 @@ export function createProduct(name: string): Product {
     steps: [],
     createdAt: new Date().toISOString(),
   };
-  load().push(product);
-  persist();
+  products.push(product);
+  await writeAll(products);
   return product;
 }
 
-export function updateProduct(
+export async function updateProduct(
   productId: string,
   patch: Partial<Omit<Product, "id" | "key" | "createdAt">>
-): Product | undefined {
-  const product = getProduct(productId);
+): Promise<Product | undefined> {
+  const products = await readAll();
+  const product = products.find((p) => p.id === productId);
   if (!product) return undefined;
   // A patch omits what it does not change, and callers build patches with
   // `undefined` for absent fields. `Object.assign` would copy those over the
@@ -145,43 +187,46 @@ export function updateProduct(
       (product as Record<string, unknown>)[field] = value;
     }
   }
-  persist();
+  await writeAll(products);
   return product;
 }
 
-export function addKnowledge(
+export async function addKnowledge(
   productId: string,
   title: string,
-  body: string
-): Product | undefined {
-  const product = getProduct(productId);
+  body: string,
+  kind: KnowledgeEntry["kind"] = "text"
+): Promise<Product | undefined> {
+  const products = await readAll();
+  const product = products.find((p) => p.id === productId);
   if (!product) return undefined;
   product.knowledge.push({
     id: id("kb"),
     title: title.trim() || "Untitled note",
     body: body.trim(),
     updatedAt: new Date().toISOString(),
+    kind,
   });
-  persist();
+  await writeAll(products);
   return product;
 }
 
-export function removeKnowledge(
+export async function removeKnowledge(
   productId: string,
   entryId: string
-): Product | undefined {
-  const product = getProduct(productId);
+): Promise<Product | undefined> {
+  const products = await readAll();
+  const product = products.find((p) => p.id === productId);
   if (!product) return undefined;
   product.knowledge = product.knowledge.filter((k) => k.id !== entryId);
-  persist();
+  await writeAll(products);
   return product;
 }
 
-export function deleteProduct(productId: string): boolean {
-  const all = load();
-  const index = all.findIndex((p) => p.id === productId);
-  if (index === -1) return false;
-  all.splice(index, 1);
-  persist();
+export async function deleteProduct(productId: string): Promise<boolean> {
+  const products = await readAll();
+  const next = products.filter((p) => p.id !== productId);
+  if (next.length === products.length) return false;
+  await writeAll(next);
   return true;
 }

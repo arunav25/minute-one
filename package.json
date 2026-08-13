@@ -19,24 +19,25 @@
   },
   "dependencies": {
     "@deepgram/agents": "0.1.1",
+    "@minute-one/core": "*",
+    "@minute-one/voice-deepgram": "*",
+    "@minute-one/voice-mock": "*",
+    "@minute-one/voice-pyai": "*",
+    "@minute-one/web": "*",
+    "@neondatabase/serverless": "^1.1.0",
     "@pyai/sdk": "^0.2.3",
     "next": "16.3.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "@minute-one/core": "*",
-    "@minute-one/web": "*",
-    "@minute-one/voice-deepgram": "*",
-    "@minute-one/voice-pyai": "*",
-    "@minute-one/voice-mock": "*"
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.51.1",
     "@types/node": "22.10.7",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
+    "esbuild": "^0.24.0",
     "typescript": "5.7.3",
-    "vitest": "2.1.8",
-    "esbuild": "^0.24.0"
+    "vitest": "2.1.8"
   },
   "workspaces": [
     "packages/*"
