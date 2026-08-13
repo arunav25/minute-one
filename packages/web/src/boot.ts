@@ -14,7 +14,7 @@ import {
  * changing the knowledge base or the steps needs no redeploy of the host.
  *
  * The key is public by design — it selects context. It cannot authorise voice:
- * that is minted separately by the Minute One server, which holds the PyAI
+ * that is minted separately by the Minute One server, which holds the provider
  * secret.
  */
 
@@ -103,24 +103,20 @@ export async function boot(options: BootOptions): Promise<MinuteOne> {
   const flow = config.flow ?? answerOnlyFlow(config);
   if (config.flow && !config.flow.persona) config.flow.persona = config.persona;
 
-  const { PyAIVoiceAdapter, createPlayback, startMicrophone } = await import(
-    "@minute-one/voice-pyai"
-  );
+  const { DeepgramVoiceAdapter } = await import("@minute-one/voice-deepgram");
 
   const guide = new MinuteOne({
     flow,
     createVoiceAdapter:
       options.createVoiceAdapter ??
       (() =>
-        new PyAIVoiceAdapter({
+        new DeepgramVoiceAdapter({
           // The product key travels with the mint request so the server can
           // check this page's origin against that product's allowlist. Without
           // it, a cross-origin endpoint would mint voice tokens for any caller.
           tokenEndpoint: `${host.replace(/\/$/, "")}/api/minute-one/session?key=${encodeURIComponent(
             options.productKey
           )}`,
-          startMicrophone,
-          createPlayback,
         })),
     createDemoAdapter: options.createDemoAdapter,
     eventsEndpoint: `${host.replace(/\/$/, "")}/api/minute-one/events`,

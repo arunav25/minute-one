@@ -12,7 +12,7 @@ import { GuideMount } from "./GuideMount";
  * real JustCall integration runs on the actual app at app.justcall.local, not a
  * localhost lookalike.
  *
- * Add `?voice=mock` to run without PyAI (used by the browser tests).
+ * Add `?voice=mock` to run without Deepgram (used by the browser tests).
  */
 export function EmbedTest() {
   return (

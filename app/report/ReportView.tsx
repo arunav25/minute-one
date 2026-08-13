@@ -144,7 +144,7 @@ export function ReportView() {
         </div>
         <p className="rp-foot">
           {report.realVoiceSessions} of {report.sessions.length} sessions used
-          real PyAI voice · {report.totalVoiceMinutes} voice minutes total ·
+          real provider voice · {report.totalVoiceMinutes} voice minutes total ·
           rows beginning <code>seed_</code> are sample data
         </p>
       </section>

@@ -2,11 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { MinuteOne } from "@minute-one/web";
-import {
-  PyAIVoiceAdapter,
-  createPlayback,
-  startMicrophone,
-} from "@minute-one/voice-pyai";
+import { DeepgramVoiceAdapter } from "@minute-one/voice-deepgram";
 import { MockVoiceAdapter } from "@minute-one/voice-mock";
 import { acmeBookingFlow } from "./acme-flow";
 
@@ -17,7 +13,7 @@ import { acmeBookingFlow } from "./acme-flow";
  * choose adapters, init. The guide mounts its own Shadow DOM overlay; the
  * product renders none of it and cannot advance a step.
  *
- * `?voice=mock` runs the journey without PyAI, for the browser tests, which
+ * `?voice=mock` runs the journey without Deepgram, for the browser tests, which
  * cannot speak and have no key. It is an explicit opt-in in the URL, never a
  * silent fallback — the adapter still reports itself as the mock, so the
  * overlay and report both say `isRealVoice: false`.
@@ -34,10 +30,8 @@ export function GuideMount() {
       createVoiceAdapter: () =>
         mockVoice
           ? new MockVoiceAdapter("explicitly requested with ?voice=mock")
-          : new PyAIVoiceAdapter({
+          : new DeepgramVoiceAdapter({
               tokenEndpoint: "/api/minute-one/session",
-              startMicrophone,
-              createPlayback,
             }),
       createDemoAdapter: (reason) => new MockVoiceAdapter(reason),
       eventsEndpoint: "/api/minute-one/events",

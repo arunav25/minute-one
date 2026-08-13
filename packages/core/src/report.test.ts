@@ -25,7 +25,7 @@ describe("report", () => {
   it("records which provider actually carried the voice", () => {
     expect(report.realVoiceSessions).toBe(3);
     expect(report.totalVoiceMinutes).toBeGreaterThan(0);
-    expect(report.sessions.every((s) => s.provider === "pyai")).toBe(true);
+    expect(report.sessions.every((s) => s.provider === "deepgram")).toBe(true);
   });
 
   it("tracks handoff offers and acceptances", () => {

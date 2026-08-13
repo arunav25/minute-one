@@ -6,7 +6,7 @@
   "description": "Verified conversational onboarding. A voice guide that refuses to advance until the intended result is proven.",
   "scripts": {
     "dev": "next dev -p 3200",
-    "demo": "npm run build:sdk && next dev -p 3200",
+    "demo": "npm run build:sdk && next dev -H 127.0.0.1 -p 3200",
     "build": "next build",
     "start": "next start -p 3200",
     "typecheck": "tsc --noEmit",
@@ -18,12 +18,14 @@
     "dev:cert": "node scripts/dev-cert.mjs"
   },
   "dependencies": {
+    "@deepgram/agents": "0.1.1",
     "@pyai/sdk": "^0.2.3",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "@minute-one/core": "*",
     "@minute-one/web": "*",
+    "@minute-one/voice-deepgram": "*",
     "@minute-one/voice-pyai": "*",
     "@minute-one/voice-mock": "*"
   },

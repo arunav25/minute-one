@@ -43,7 +43,7 @@ export type OverlayView = {
    * verification gate does not read it.
    */
   targetNote: string | null;
-  /** PyAI is connected but the browser refused the microphone. */
+  /** Real voice is connected but the browser refused the microphone. */
   micBlocked: boolean;
   helpNumber: string;
   reportUrl: string;
@@ -196,7 +196,7 @@ export class ShadowOverlay {
         <span class="badge">${
           view.proof
             ? real
-              ? `Voice: PyAI ${cap(view.proof.connection)}`
+              ? `Voice: ${providerLabel(view.proof.provider)} ${cap(view.proof.connection)}`
               : "Voice: DEMO MODE — not real voice"
             : "Voice: not connected"
         }</span>
@@ -225,7 +225,7 @@ export class ShadowOverlay {
            ${
              view.connectionError
                ? `<div class="error" role="alert">
-                    <p><strong>PyAI did not connect.</strong> ${esc(view.connectionError)}</p>
+                    <p><strong>Voice did not connect.</strong> ${esc(view.connectionError)}</p>
                     <p class="muted">Demo mode uses a scripted mock. It is not real voice and stays labelled as such.</p>
                     <button class="ghost" data-action="start-demo">Continue in demo mode</button>
                   </div>`
@@ -236,7 +236,7 @@ export class ShadowOverlay {
     const micBlock = view.micBlocked
       ? `<div class="mic" role="alert">
            <strong>Microphone blocked.</strong>
-           <p class="muted">PyAI is connected — the browser refused capture. Allow the microphone for this site, then press End and start again.</p>
+           <p class="muted">The voice session is connected, but the browser refused capture. Allow the microphone for this site, then press End and start again.</p>
          </div>`
       : "";
 
@@ -351,3 +351,10 @@ const cell = (label: string, value: string) =>
   `<div><dt>${esc(label)}</dt><dd title="${esc(value)}">${esc(value)}</dd></div>`;
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const providerLabel = (provider: string) =>
+  provider === "deepgram"
+    ? "Deepgram"
+    : provider === "pyai"
+      ? "PyAI"
+      : cap(provider);
