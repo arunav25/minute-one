@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Minute One">
+  <title>Minute One</title>
+  <!-- The gate draws closed, then the proof breaks through it.
+       Base state is the finished mark, so anywhere animation is stripped
+       (print, older renderers, reduced-motion) this still shows the logo. -->
+  <style>
+    .gate { stroke-dasharray: 145; }
+    .proof { stroke-dasharray: 49; }
+    @media (prefers-reduced-motion: no-preference) {
+      .gate  { animation: mo-gate 3.1s cubic-bezier(.4,0,.2,1) infinite; }
+      .proof { animation: mo-proof 3.1s cubic-bezier(.2,0,0,1) infinite; }
+    }
+    @keyframes mo-gate {
+      0%   { stroke-dashoffset: 145; }
+      23%, 100% { stroke-dashoffset: 0; }
+    }
+    @keyframes mo-proof {
+      0%, 18% { stroke-dashoffset: 49; }
+      33%, 100% { stroke-dashoffset: 0; }
+    }
+  </style>
+  <path class="gate" d="M50.87 15.6 A25 25 0 1 1 40.55 8.51"
+        fill="none" stroke="#16141F" stroke-width="4.2" stroke-linecap="round"/>
+  <path class="proof" d="M21.5 33 L29.5 41 L48.9 8.3"
+        fill="none" stroke="#7C5CFF" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

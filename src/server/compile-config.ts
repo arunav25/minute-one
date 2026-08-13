@@ -1,5 +1,6 @@
 import type { FlowDefinition, FlowStep } from "@minute-one/core";
 import type { Product } from "./product-store";
+import { hasKnowledgeBase } from "./knowledge-store";
 
 /**
  * Compiles a product into the runtime config the embedded script consumes.
@@ -23,22 +24,28 @@ export type RuntimeConfig = {
   persona: string;
   /** Titles only — proof of what grounded the answer, without shipping it all. */
   knowledgeTitles: string[];
+  /**
+   * True when this product has an ingested, embedded corpus. The agent is then
+   * told to retrieve with `search_knowledge` per question rather than reading a
+   * knowledge base stuffed into the prompt — the only thing that scales past a
+   * handful of hand-written notes.
+   */
+  knowledgeSearch: boolean;
 };
 
 const MAX_KB_CHARS = 6000;
 
-function buildPersona(product: Product, mode: RuntimeConfig["mode"]): string {
-  const knowledge = product.knowledge
-    .map((k) => `### ${k.title}\n${k.body}`)
-    .join("\n\n")
-    .slice(0, MAX_KB_CHARS);
-
+function buildPersona(
+  product: Product,
+  mode: RuntimeConfig["mode"],
+  knowledgeSearch: boolean
+): string {
   const rules = [
     `You are Minute One, a concise voice guide embedded in ${product.name}.`,
     "",
-    "Answer only from the knowledge below. If the answer is not there, say you",
-    "do not know and offer to connect the user to a person. Never invent a",
-    "feature, a price, a button, or an account state.",
+    knowledgeSearch
+      ? "When the user asks a product or how-to question, call the search_knowledge tool with their question and answer only from the passages it returns. If it returns nothing useful, say you do not know and offer to connect the user to a person. Never invent a feature, a price, a button, or an account state."
+      : "Answer only from the knowledge below. If the answer is not there, say you do not know and offer to connect the user to a person. Never invent a feature, a price, a button, or an account state.",
     "",
     "Keep spoken answers under 35 words. One question per turn.",
   ];
@@ -60,6 +67,16 @@ function buildPersona(product: Product, mode: RuntimeConfig["mode"]): string {
       "anything has been verified."
     );
   }
+
+  if (knowledgeSearch) {
+    // No stuffed knowledge — it is retrieved on demand via search_knowledge.
+    return rules.join("\n");
+  }
+
+  const knowledge = product.knowledge
+    .map((k) => `### ${k.title}\n${k.body}`)
+    .join("\n\n")
+    .slice(0, MAX_KB_CHARS);
 
   return `${rules.join("\n")}\n\n## Knowledge base\n\n${
     knowledge || "(empty — say you have no information yet)"
@@ -109,6 +126,10 @@ export function compileProduct(product: Product): RuntimeConfig {
   const mode: RuntimeConfig["mode"] =
     product.steps.length > 0 ? "guided" : "answer";
 
+  // Retrieve at answer time only when there is an ingested corpus to retrieve
+  // from. Otherwise fall back to stuffing the hand-written notes into the prompt.
+  const knowledgeSearch = hasKnowledgeBase(product.key);
+
   const flow: FlowDefinition | null =
     mode === "guided"
       ? {
@@ -121,7 +142,7 @@ export function compileProduct(product: Product): RuntimeConfig {
           maxSessionSeconds: 480,
           maxVoiceMinutes: 8,
           steps: product.steps.map(compileStep),
-          persona: buildPersona(product, mode),
+          persona: buildPersona(product, mode, knowledgeSearch),
         }
       : null;
 
@@ -130,7 +151,8 @@ export function compileProduct(product: Product): RuntimeConfig {
     productName: product.name,
     mode,
     flow,
-    persona: buildPersona(product, mode),
+    persona: buildPersona(product, mode, knowledgeSearch),
     knowledgeTitles: product.knowledge.map((k) => k.title),
+    knowledgeSearch,
   };
 }

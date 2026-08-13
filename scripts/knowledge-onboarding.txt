@@ -1,0 +1,16 @@
+# Curated onboarding set for the panel demo.
+# Theme: getting started + buying / porting a phone number.
+# One article id per line. Blank lines and #-comments are ignored.
+# Pass to the ingester with:  --include=scripts/knowledge-onboarding.txt
+
+796061      # Setting up new JustCall account
+803376      # Getting a New Phone Number on JustCall
+3934025     # How to get a new Phone Number on JustCall?
+3130501     # Phone Number Pricing in JustCall
+8492541     # FAQs: Phone Numbers
+10664758    # Local Number Bundles: Get More Numbers for Better Outreach
+3933590     # Setup a Team Phone number
+3933885     # How to assign a dedicated phone number to a team member
+803355      # How to port our existing phone numbers to JustCall
+803706      # Documents required for number porting
+8206438     # Videos: Setting Up JustCall

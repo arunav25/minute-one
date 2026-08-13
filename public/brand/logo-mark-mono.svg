@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Minute One">
+  <title>Minute One</title>
+  <!-- single colour: inherits from CSS `color` when inlined, black otherwise -->
+  <path d="M50.87 15.6 A25 25 0 1 1 40.55 8.51"
+        fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" opacity="0.45"/>
+  <path d="M21.5 33 L29.5 41 L48.9 8.3"
+        fill="none" stroke="currentColor" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

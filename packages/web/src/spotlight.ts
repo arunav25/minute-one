@@ -193,7 +193,10 @@ const STYLE = `
   box-sizing: border-box;
   border-radius: 12px;
   pointer-events: none;
-  box-shadow: 0 0 0 200vmax rgba(8, 10, 12, .45);
+  /* Tuned for light host pages. The old .45 black was set when everything here
+     was dark; over a white application it reads as switching the lights off
+     rather than pointing at something. */
+  box-shadow: 0 0 0 200vmax rgba(22, 20, 31, .22);
   transition: opacity .2s ease;
   opacity: 0;
   /* Below the ring and pulse, and below the instruction panel (2147483000). */

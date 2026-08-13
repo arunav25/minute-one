@@ -1,0 +1,110 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Minute One — brand</title>
+<style>
+  :root{
+    --violet:#7C5CFF; --violet-lo:#9C7CFF; --violet-hi:#5C34E0; --violet-dark:#9B7BFF;
+    --ink:#16141F; --dim:#6B6880; --line:#E6E3F2; --panel:#FBFAFF; --bg:#FFFFFF;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;
+  }
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);padding:34px 30px 70px}
+  h1{font-size:26px;letter-spacing:-.03em;margin:0 0 4px}
+  .sub{color:var(--dim);margin:0 0 30px;font-size:14px}
+  h2{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
+     margin:34px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;min-width:120px}
+  .card.dark{background:#0F0D16;border-color:#282435}
+  .lab{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--dim)}
+  .card.dark .lab{color:#7E7995}
+  .sizes{display:flex;align-items:center;gap:14px}
+  .sw{width:104px;height:74px;border-radius:12px;border:1px solid var(--line);
+      display:flex;flex-direction:column;justify-content:flex-end;padding:8px;gap:2px}
+  .sw b{font-size:11px;font-weight:600}
+  .sw span{font-family:var(--mono);font-size:9px;opacity:.75}
+  /* widget mock */
+  .widget{width:330px;border:1px solid var(--line);border-radius:16px;background:#fff;
+          box-shadow:0 12px 34px rgba(22,20,31,.13);overflow:hidden}
+  .wh{display:flex;align-items:center;gap:9px;padding:13px 14px;border-bottom:1px solid var(--line)}
+  .wh .name{font-size:11.5px;font-weight:700;letter-spacing:.13em}
+  .pill{margin-left:auto;background:#E8FBEF;color:#128A4A;font-size:10.5px;font-weight:600;
+        border-radius:999px;padding:4px 9px;display:flex;align-items:center;gap:5px}
+  .pill i{width:6px;height:6px;border-radius:50%;background:#16A75C;display:block}
+  .wb{padding:14px}
+  .wb .step{display:flex;font-size:12.5px;color:var(--dim)}
+  .wb .step em{margin-left:auto;font-style:normal;color:var(--violet);font-weight:600}
+  .wb p{font-size:15px;margin:12px 0 14px;line-height:1.45}
+  .wb p b{color:var(--violet)}
+  .ok{background:#EDFBF2;color:#128A4A;font-size:12.5px;font-weight:600;border-radius:9px;
+      padding:9px 11px;display:flex;align-items:center;gap:8px}
+</style>
+
+<h1>Minute One</h1>
+<p class="sub">The gate holds shut. The proof breaks through it. That is the whole product in one shape.</p>
+
+<h2>Primary lockup — on light</h2>
+<div class="row">
+  <div class="card"><img src="logo-lockup.svg" width="252" alt=""><div class="lab">logo-lockup</div></div>
+  <div class="card"><img src="logo-lockup-caps.svg" width="252" alt=""><div class="lab">logo-lockup-caps</div></div>
+  <div class="card"><img src="logo-lockup-stacked.svg" width="252" alt=""><div class="lab">logo-lockup-stacked</div></div>
+</div>
+
+<h2>On dark</h2>
+<div class="row">
+  <div class="card dark"><img src="logo-lockup-dark.svg" width="252" alt=""><div class="lab">logo-lockup-dark</div></div>
+  <div class="card dark"><img src="logo-mark-dark.svg" width="72" alt=""><div class="lab">logo-mark-dark</div></div>
+  <div class="card dark" style="color:#E9E7F2"><img src="logo-lockup-mono.svg" width="252" alt="" style="filter:invert(1)"><div class="lab">logo-lockup-mono</div></div>
+</div>
+
+<h2>Mark — size ladder</h2>
+<div class="row">
+  <div class="card"><div class="sizes">
+    <img src="logo-mark.svg" width="88"><img src="logo-mark.svg" width="48">
+    <img src="logo-mark.svg" width="32"><img src="logo-mark.svg" width="24"><img src="logo-mark.svg" width="16">
+  </div><div class="lab">logo-mark — 88 / 48 / 32 / 24 / 16</div></div>
+</div>
+
+<h2>App icon &amp; favicon</h2>
+<div class="row">
+  <div class="card"><div class="sizes">
+    <img src="icon.svg" width="88" style="border-radius:22px"><img src="icon.svg" width="48" style="border-radius:12px">
+    <img src="icon.svg" width="32" style="border-radius:8px">
+  </div><div class="lab">icon</div></div>
+  <div class="card"><div class="sizes">
+    <img src="favicon.svg" width="64" style="border-radius:14px"><img src="favicon.svg" width="32" style="border-radius:7px">
+    <img src="favicon.svg" width="16" style="border-radius:3.5px">
+  </div><div class="lab">favicon — 64 / 32 / 16</div></div>
+  <div class="card"><img src="logo-mark-animated.svg" width="88"><div class="lab">logo-mark-animated</div></div>
+</div>
+
+<h2>In place — widget header</h2>
+<div class="row">
+  <div class="widget">
+    <div class="wh">
+      <img src="icon.svg" width="26" height="26" alt="">
+      <span class="name">MINUTE ONE</span>
+      <span class="pill"><i></i>Voice: PyAI Connected</span>
+    </div>
+    <div class="wb">
+      <div class="step">Set up a sales number <em>Step 2 of 4</em></div>
+      <p>Click <b>Add Number</b> to choose your phone number.</p>
+      <div class="ok"><img src="logo-mark.svg" width="15" alt="">Previous step verified</div>
+    </div>
+  </div>
+  <div class="card" style="min-width:230px">
+    <img src="logo-lockup-caps.svg" width="150" alt="">
+    <div class="lab">caps lockup at header scale</div>
+  </div>
+</div>
+
+<h2>Palette</h2>
+<div class="row">
+  <div class="sw" style="background:linear-gradient(135deg,#9C7CFF,#5C34E0);color:#fff"><b>Gradient</b><span>#9C7CFF → #5C34E0</span></div>
+  <div class="sw" style="background:#7C5CFF;color:#fff"><b>Violet</b><span>#7C5CFF</span></div>
+  <div class="sw" style="background:#9B7BFF;color:#16141F"><b>Violet dark-bg</b><span>#9B7BFF</span></div>
+  <div class="sw" style="background:#16141F;color:#fff"><b>Ink</b><span>#16141F</span></div>
+  <div class="sw" style="background:#6B6880;color:#fff"><b>Dim</b><span>#6B6880</span></div>
+  <div class="sw" style="background:#FBFAFF"><b>Panel</b><span>#FBFAFF</span></div>
+</div>

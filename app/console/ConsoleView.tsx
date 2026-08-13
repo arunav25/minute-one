@@ -70,7 +70,7 @@ export function ConsoleView() {
     <div className="cn">
       <aside className="cn-side">
         <div className="cn-brand">
-          <span className="cn-logo">M1</span>
+          <img className="cn-logo" src="/brand/icon.svg" alt="" width={30} height={30} />
           <div>
             <strong>Minute One</strong>
             <span className="cn-muted">verified onboarding</span>

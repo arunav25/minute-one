@@ -40,6 +40,13 @@ export type MinuteOneConfig = {
   productKey?: string;
   /** Reported with events, never included in the voice context. */
   identity?: SessionIdentity;
+  /**
+   * Absolute URL of the semantic-search endpoint, set only when the product
+   * has an ingested knowledge base. The agent's `search_knowledge` tool calls
+   * it at answer time; the query travels in the URL, the embedding key never
+   * leaves the Minute One server.
+   */
+  knowledgeSearchEndpoint?: string;
   reportUrl?: string;
   helpNumber?: string;
   mount?: HTMLElement;
@@ -394,6 +401,29 @@ export class MinuteOne {
         case "accept_phone_help": {
           this.patch({ offeringHandoff: true });
           return void (await adapter.respondToTool(call.callId, { shown: true }));
+        }
+        case "search_knowledge": {
+          const endpoint = this.config.knowledgeSearchEndpoint;
+          const query = String(call.arguments.query ?? "").trim();
+          if (!endpoint || !query) {
+            return void (await adapter.respondToTool(call.callId, { hits: [] }));
+          }
+          // Retrieval happens on the Minute One server, which holds the
+          // embedding key. We forward the question and hand the model back the
+          // nearest passages to ground its spoken answer on.
+          const res = await fetch(
+            `${endpoint}&q=${encodeURIComponent(query)}`,
+            { credentials: "omit" }
+          );
+          const body = (await res.json().catch(() => ({}))) as {
+            hits?: Array<{ title: string; url: string; text: string }>;
+          };
+          const hits = (body.hits ?? []).map((h) => ({
+            title: h.title,
+            url: h.url,
+            text: h.text,
+          }));
+          return void (await adapter.respondToTool(call.callId, { hits }));
         }
         default:
           return void (await adapter.respondToToolError(

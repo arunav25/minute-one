@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 231 64" width="231" height="64" role="img" aria-label="Minute One">
+  <title>Minute One</title>
+  <path d="M50.87 15.6 A25 25 0 1 1 40.55 8.51"
+        fill="none" stroke="#16141F" stroke-width="4.2" stroke-linecap="round"/>
+  <path d="M21.5 33 L29.5 41 L48.9 8.3"
+        fill="none" stroke="#7C5CFF" stroke-width="5.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="80" y="42.8" textLength="146.4" lengthAdjust="spacing"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="600" letter-spacing="-1.1" fill="#16141F">Minute One</text>
+</svg>

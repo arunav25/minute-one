@@ -25,6 +25,29 @@ export type RuntimeConfig = {
   flow: FlowDefinition | null;
   persona: string;
   knowledgeTitles: string[];
+  /** True when the product has an ingested corpus to retrieve from. */
+  knowledgeSearch?: boolean;
+};
+
+/**
+ * The tool the agent calls to look something up. Declared here (not in core)
+ * because whether a product has a searchable corpus is product knowledge. The
+ * engine still never lets a tool result advance a step.
+ */
+const SEARCH_KNOWLEDGE_TOOL = {
+  name: "search_knowledge",
+  description:
+    "Look up help-center articles for this product to answer a user's question. Call it whenever the user asks how something works or how to do something, then answer only from the passages returned.",
+  parameters: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "The user's question, in their own words.",
+      },
+    },
+    required: ["query"],
+  },
 };
 
 export type BootOptions = {
@@ -103,6 +126,18 @@ export async function boot(options: BootOptions): Promise<MinuteOne> {
   const flow = config.flow ?? answerOnlyFlow(config);
   if (config.flow && !config.flow.persona) config.flow.persona = config.persona;
 
+  // When the product has an ingested corpus, give the agent the retrieval tool
+  // and the endpoint to call. Both are absent otherwise, so nothing changes for
+  // a product that only has hand-written notes.
+  if (config.knowledgeSearch) {
+    flow.tools = [...(flow.tools ?? []), SEARCH_KNOWLEDGE_TOOL];
+  }
+  const knowledgeSearchEndpoint = config.knowledgeSearch
+    ? `${host.replace(/\/$/, "")}/api/minute-one/knowledge/search?key=${encodeURIComponent(
+        options.productKey
+      )}`
+    : undefined;
+
   const { DeepgramVoiceAdapter } = await import("@minute-one/voice-deepgram");
 
   const guide = new MinuteOne({
@@ -120,6 +155,7 @@ export async function boot(options: BootOptions): Promise<MinuteOne> {
         })),
     createDemoAdapter: options.createDemoAdapter,
     eventsEndpoint: `${host.replace(/\/$/, "")}/api/minute-one/events`,
+    knowledgeSearchEndpoint,
     productKey: options.productKey,
     identity: normaliseIdentity(options),
     reportUrl: `${host.replace(/\/$/, "")}/report`,
