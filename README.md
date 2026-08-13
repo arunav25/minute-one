@@ -16,11 +16,11 @@ It ships as one script tag. The host application changes nothing else.
 
 ## Setup
 
-Node 22+, and a PyAI key for real voice.
+Node 22+, and a Deepgram API key for real voice.
 
 ```bash
 npm install
-cp .env.example .env.local     # add PYAI_API_KEY
+cp .env.example .env.local     # add DEEPGRAM_API_KEY
 npm run dev                    # http://localhost:3200
 ```
 
@@ -60,7 +60,7 @@ Identity is reported with sessions and **never added to the voice context** — 
 guide does not speak your users' names or email addresses back to them.
 
 ```bash
-npm test          # 41 unit tests
+npm test          # 48 unit tests
 npm run typecheck
 npm run e2e       # 5 browser tests, real DOM and overlay
 ```
@@ -78,7 +78,9 @@ already-running server with `MINUTE_ONE_BASE_URL=https://localhost:3200 npm run 
 @minute-one/web           the embeddable SDK: init/start/track/getStatus/destroy,
                           DOM + route observation, Shadow DOM overlay,
                           spotlight, microphone permission, redaction.
-@minute-one/voice-pyai    real voice over PyAI Omni.
+@minute-one/voice-deepgram
+                          real browser voice over Deepgram Voice Agent.
+@minute-one/voice-pyai    retained provider adapter; not selected by default.
 @minute-one/voice-mock    tests, and an explicitly labelled offline demo.
 app/, src/server/         console, config and session endpoints, event store.
 app/embed-test/           a generic demo product (Acme Scheduling) with the
@@ -95,23 +97,22 @@ than brittle selectors.
 Four classes of evidence are defined: DOM condition, URL condition, host
 application event, backend-confirmed event.
 
-A console-built Voice Agent can supply the voice and language, but never the
-verification contract: Minute One keeps sending its own persona and tools per
-session, so an agent changes how the guide sounds, not what counts as proof.
+Deepgram supplies listening, reasoning and speech, but never the verification
+contract. Minute One sends the authored tools and current page context to the
+voice session. Only the local controller can mark a step successful.
 
 ## What is real, and what is not
 
 Honesty about state matters more here than a feature list.
 
-**Real, verified end to end**
-- PyAI Omni voice. Verified from two origins with a live socket: server `hello`
-  (protocol 2), `session_started`, real `call_id`. The overlay always shows which
-  provider is carrying the audio.
-- Adopting a Voice Agent built in the PyAI console. Set `PYAI_AGENT_ID` and the
-  profile resolves on the call: `hello.agent_id` comes back as that agent
-  instead of `__unknown__`. It binds from the connect URL's `session_label` —
-  minting with the same label does *not* bind it, which is easy to miss because
-  both calls accept one. Leave it empty and everything runs as before.
+**Implemented and verified by local tests**
+- Deepgram Voice Agent is the default real provider. The browser adapter uses
+  the official `@deepgram/agents` SDK for microphone input, streamed audio,
+  transcripts, barge-in, prompt updates and client-side function calls. The
+  overlay always shows which provider is carrying the audio.
+- `/api/minute-one/session` exchanges the server-only `DEEPGRAM_API_KEY` for a
+  short-lived bearer token. Product origins and the optional global spend gate
+  are checked before the Deepgram request.
 - The verification gate. A wrong action stays blocked and names the missing
   evidence; the correction advances it.
 - Spotlight: hugs the target across route and DOM changes, passes clicks through,
@@ -119,6 +120,12 @@ Honesty about state matters more here than a feature list.
 - Origin-locked keys: a product key is refused from an unlisted origin, and no
   voice token is minted for one.
 - Journey authoring in the console, compiled to a verified flow.
+
+**Needs a credentialed smoke test**
+- A live Deepgram browser session, including microphone capture, first audio,
+  transcript delivery, function-call round trip and reconnect. Unit tests cover
+  the adapter boundary and token route, but this repository run did not have a
+  real `DEEPGRAM_API_KEY` or microphone.
 
 **Configured, not proven at scale**
 - Session events and the report are process-local and reset on restart.
@@ -130,7 +137,7 @@ Honesty about state matters more here than a feature list.
   that page changes, the journey is edited in the console, not the repo.
 
 **Not built**
-- Microphone capture has never been exercised in an automated run; the sandbox
+- Microphone capture has not been exercised in an automated run; the sandbox
   browsers block `getUserMedia`. The code path handles denial explicitly, with a
   distinct notice and no offer of demo mode.
 - Host-event and backend-event evidence are typed extension points. Only DOM and
@@ -141,10 +148,10 @@ Honesty about state matters more here than a feature list.
   hosted CDN, no visual flow editor, no browser extension.
 
 **Never**
-- Silently swapping PyAI for the mock. A failed connection is shown as a failure;
+- Silently swapping Deepgram for the mock. A failed connection is shown as a failure;
   demo mode is an explicit choice and stays labelled as a mock.
-- The PyAI secret reaching the browser. The page gets a short-lived,
-  origin-locked session token.
+- The Deepgram API key reaching the browser. The page gets a short-lived bearer
+  token only after the server validates the request origin.
 
 ## Reference integration
 
@@ -159,9 +166,9 @@ runs into, both worth knowing before you try your own:
 - **Content-Security-Policy.** The host's `script-src` and `connect-src` must
   name the Minute One origin, or the browser refuses both the script and its
   config fetch. It looks identical to a certificate problem and is not one.
-- **Token origin.** A token is locked to the origin that asked for it. An HTTPS
-  page cannot use an HTTP-locked token; PyAI refuses the socket with a bare 1006
-  and no explanation.
+- **Token origin.** The server validates the page's `Origin` before minting a
+  temporary Deepgram token. Add every real host origin to the product allowlist
+  and, when used, `DEEPGRAM_ALLOWED_ORIGINS`.
 
 ## Licence
 

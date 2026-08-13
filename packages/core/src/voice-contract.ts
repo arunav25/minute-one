@@ -20,9 +20,9 @@ export type VoiceConnectionState =
  * quietly be running on something other than what it claims.
  */
 export type VoiceProviderProof = {
-  /** "pyai" | "mock" — the literal provider in use. */
+  /** "deepgram" | "pyai" | "mock". The literal provider in use. */
   provider: string;
-  /** Model or PyAI surface, e.g. "omni-realtime". */
+  /** Provider model or surface, e.g. "flux-general-en + gpt-4o-mini". */
   model: string;
   /** Provider-issued session/call id, when supplied. */
   sessionId: string | null;

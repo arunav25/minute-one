@@ -5,11 +5,11 @@ import type {
 } from "@minute-one/core";
 
 /**
- * Offline stand-in for tests and UI work without a PyAI key.
+ * Offline stand-in for tests and UI work without a voice-provider key.
  *
  * `isRealVoice` is false and `provider` is "mock", and both are surfaced in the
  * UI and written to the event log. The engine never selects this adapter on its
- * own: a PyAI failure surfaces as a failure, and only an explicit user choice
+ * own: a provider failure surfaces as a failure, and only an explicit user choice
  * can switch to demo mode.
  */
 export class MockVoiceAdapter implements VoiceAdapter {

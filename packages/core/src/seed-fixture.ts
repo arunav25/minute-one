@@ -10,7 +10,7 @@ const base = (sessionId: string, at: string) => ({ sessionId, at });
 export const SEED_EVENTS: SessionEvent[] = [
   // 1. Clean completion, real voice.
   { ...base("seed_completed", "2026-08-11T09:00:00.000Z"), sequence: 0, type: "session_started", detail: { flowId: "setup-sales-number", sample: true } },
-  { ...base("seed_completed", "2026-08-11T09:00:00.100Z"), sequence: 1, type: "voice_provider", detail: { provider: "pyai", model: "omni-realtime", isRealVoice: true, providerSessionId: "omni_seed_a1", sample: true } },
+  { ...base("seed_completed", "2026-08-11T09:00:00.100Z"), sequence: 1, type: "voice_provider", detail: { provider: "deepgram", model: "flux-general-en + gpt-4o-mini + aura-2-thalia-en", isRealVoice: true, providerSessionId: "dg_seed_a1", sample: true } },
   { ...base("seed_completed", "2026-08-11T09:00:02.000Z"), sequence: 2, type: "goal_selected", detail: { flowId: "setup-sales-number" } },
   { ...base("seed_completed", "2026-08-11T09:00:03.000Z"), sequence: 3, type: "step_instructed", stepId: "open-phone-numbers", attempt: 1 },
   { ...base("seed_completed", "2026-08-11T09:00:09.000Z"), sequence: 4, type: "verification_checked", stepId: "open-phone-numbers", attempt: 1, reason: "passed", durationMs: 6000 },
@@ -26,7 +26,7 @@ export const SEED_EVENTS: SessionEvent[] = [
 
   // 2. Wrong team, recovered on the second attempt.
   { ...base("seed_recovered", "2026-08-11T10:00:00.000Z"), sequence: 0, type: "session_started", detail: { flowId: "setup-sales-number", sample: true } },
-  { ...base("seed_recovered", "2026-08-11T10:00:00.100Z"), sequence: 1, type: "voice_provider", detail: { provider: "pyai", model: "omni-realtime", isRealVoice: true, providerSessionId: "omni_seed_b2", sample: true } },
+  { ...base("seed_recovered", "2026-08-11T10:00:00.100Z"), sequence: 1, type: "voice_provider", detail: { provider: "deepgram", model: "flux-general-en + gpt-4o-mini + aura-2-thalia-en", isRealVoice: true, providerSessionId: "dg_seed_b2", sample: true } },
   { ...base("seed_recovered", "2026-08-11T10:00:01.000Z"), sequence: 2, type: "goal_selected" },
   { ...base("seed_recovered", "2026-08-11T10:00:02.000Z"), sequence: 3, type: "step_instructed", stepId: "assign-sales-team", attempt: 1 },
   { ...base("seed_recovered", "2026-08-11T10:00:12.000Z"), sequence: 4, type: "verification_checked", stepId: "assign-sales-team", attempt: 1, reason: 'control "Sales" is selected', durationMs: 10000 },
@@ -40,7 +40,7 @@ export const SEED_EVENTS: SessionEvent[] = [
 
   // 3. Exhausted attempts, phone help offered and accepted.
   { ...base("seed_handoff", "2026-08-11T11:00:00.000Z"), sequence: 0, type: "session_started", detail: { flowId: "setup-sales-number", sample: true } },
-  { ...base("seed_handoff", "2026-08-11T11:00:00.100Z"), sequence: 1, type: "voice_provider", detail: { provider: "pyai", model: "omni-realtime", isRealVoice: true, providerSessionId: "omni_seed_c3", sample: true } },
+  { ...base("seed_handoff", "2026-08-11T11:00:00.100Z"), sequence: 1, type: "voice_provider", detail: { provider: "deepgram", model: "flux-general-en + gpt-4o-mini + aura-2-thalia-en", isRealVoice: true, providerSessionId: "dg_seed_c3", sample: true } },
   { ...base("seed_handoff", "2026-08-11T11:00:01.000Z"), sequence: 2, type: "goal_selected" },
   { ...base("seed_handoff", "2026-08-11T11:00:02.000Z"), sequence: 3, type: "step_instructed", stepId: "open-phone-numbers", attempt: 1 },
   { ...base("seed_handoff", "2026-08-11T11:00:28.000Z"), sequence: 4, type: "verification_checked", stepId: "open-phone-numbers", attempt: 1, reason: 'route matches "/fixture/phone-numbers*"', durationMs: 26000 },

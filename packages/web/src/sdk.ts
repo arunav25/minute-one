@@ -137,7 +137,7 @@ export class MinuteOne {
 
   /**
    * Connects real voice and runs the flow. Rejects rather than falling back:
-   * a failed PyAI connection must be visible, never silently swapped.
+   * a failed real-provider connection must be visible, never silently swapped.
    */
   async start(): Promise<void> {
     if (!this.overlay) this.init();
@@ -148,7 +148,7 @@ export class MinuteOne {
       this.patch({
         running: false,
         connectionError: message,
-        status: "PyAI connection failed",
+        status: "Voice connection failed",
         proof: null,
       });
     }
@@ -323,7 +323,7 @@ export class MinuteOne {
       stage: "Listening",
       connectionError: null,
       status: proof.isRealVoice
-        ? "Connected to PyAI"
+        ? `Connected to ${providerLabel(proof.provider)}`
         : "Demo mode (not real voice)",
     });
 
@@ -588,6 +588,13 @@ export class MinuteOne {
 
 const DEFAULT_PERSONA =
   "You are a concise onboarding guide. Give one action at a time. Never claim a step succeeded until the controller reports verification passed.";
+
+const providerLabel = (provider: string) =>
+  provider === "deepgram"
+    ? "Deepgram"
+    : provider === "pyai"
+      ? "PyAI"
+      : provider;
 
 /** Functional entry point, mirroring the script-tag surface. */
 export function init(config: MinuteOneConfig): MinuteOne {

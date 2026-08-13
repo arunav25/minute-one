@@ -7,6 +7,7 @@ const nextConfig = {
     "@minute-one/core",
     "@minute-one/web",
     "@minute-one/app-justcall",
+    "@minute-one/voice-deepgram",
     "@minute-one/voice-pyai",
     "@minute-one/voice-mock",
   ],

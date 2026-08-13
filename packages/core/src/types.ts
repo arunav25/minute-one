@@ -2,7 +2,7 @@
  * Core engine contracts.
  *
  * Nothing in this file may reference a specific product (JustCall) or a
- * specific voice provider (PyAI). Application knowledge lives in
+ * specific voice provider. Application knowledge lives in
  * `src/apps/*`; provider knowledge lives in `src/providers/*`.
  */
 

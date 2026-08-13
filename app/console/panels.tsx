@@ -67,7 +67,7 @@ export function OverviewPanel({ product, report, eventCount }: PanelProps) {
             <Tile
               label="Real voice"
               value={`${report?.realVoiceSessions ?? 0} of ${report?.sessions.length ?? 0}`}
-              note="PyAI, not the mock"
+              note="provider audio, not the mock"
             />
             <Tile
               label="Voice used"
@@ -514,7 +514,7 @@ export function InstallPanel({ product, eventCount }: PanelProps) {
         <h3>Product key</h3>
         <p className="cn-muted">
           Public by design — it selects this product&apos;s context. It cannot
-          authorise voice: that is minted server-side, and your PyAI secret never
+          authorise voice: that is minted server-side, and your Deepgram secret never
           reaches the page. The key only works from the origins listed in
           Settings.
         </p>
@@ -640,9 +640,9 @@ export function SettingsPanel({ product, busy, run }: PanelProps) {
       <section>
         <h3>Voice</h3>
         <p className="cn-muted">
-          Configured on the server, not per product: <code>PYAI_API_KEY</code> and{" "}
-          <code>PYAI_ALLOWED_ORIGINS</code> in <code>.env.local</code>. A token is
-          always locked to the origin that asked for it.
+          Configured on the server, not per product: <code>DEEPGRAM_API_KEY</code> and{" "}
+          <code>DEEPGRAM_ALLOWED_ORIGINS</code> in <code>.env.local</code>. The
+          browser receives a temporary token, while the API key stays on the server.
         </p>
       </section>
     </>
