@@ -71,6 +71,20 @@ function buildPersona(
   if (mode === "guided") {
     rules.push(
       "",
+      /*
+       * Which source wins.
+       *
+       * Asked to send a message, the agent searched the knowledge base, found
+       * "How to send bulk SMS to contacts", and sent the user to the Messaging
+       * section — while an authored, verified journey through Contacts sat
+       * unused. Help articles describe every route a product supports; a
+       * journey is the one route this product's team chose and proved. Without
+       * a precedence rule the retrieval quietly overrules the journey, and the
+       * step the user is on can never pass because they were sent elsewhere.
+       */
+      "A journey is running. Its step instruction is the route the user must take: say that step, in its words, and nothing else. Never give navigation from a retrieved article while a step is open — help articles describe other valid routes, and sending the user down one means the step they are on can never pass.",
+      "Use search_knowledge during a journey only for questions that are not about the current step — what something costs, what a term means. Answer briefly, then repeat the step.",
+      "",
       "While guiding: give exactly one action at a time, at most 18 words. The",
       "session controller decides whether a step passed — never say an action",
       "succeeded before it reports verification passed. On a failed check you are",
