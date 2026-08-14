@@ -501,3 +501,91 @@ button {
   font-size: 13px;
   cursor: pointer;
 }
+
+/* ---------------------------------------------------------------------------
+ * Console theme — dark, near-monochrome.
+ *
+ * Scoped to `.cn`, never to `:root`. The tokens above are shared with the
+ * report page, the demo host page and anything else that renders on light, and
+ * the embedded overlay carries its own styles inside a shadow root. Redefining
+ * the palette here means every existing `.cn-*` rule follows automatically and
+ * nothing outside the console can be dragged dark by accident.
+ *
+ * The accent is spent sparingly. Violet still means "the guide" out on a
+ * customer's page, where it has to compete with someone else's brand; in an
+ * operator's tool it would just be noise, so interaction reads as white-on-
+ * black and colour is reserved for meaning — green verified, amber pending,
+ * red failed. That distinction is the product, so it survives the repaint.
+ * ------------------------------------------------------------------------- */
+
+body:has(.cn) { background: #0d0d0d; }
+
+.cn {
+  color-scheme: dark;
+
+  --bg: #1a1a1a;
+  --panel: #171717;
+  --panel-2: #0d0d0d;
+  --line: #2b2b2b;
+  --line-2: #3d3d3d;
+  --text: #ececec;
+  --dim: #a4a4a4;
+  --faint: #7b7b7b;
+
+  /* Interactive: white-on-black rather than brand violet. */
+  --violet: #ececec;
+  --violet-deep: #ffffff;
+  --violet-soft: #262626;
+  --violet-line: #3d3d3d;
+
+  --ok: #3fb950;
+  --ok-soft: #12261a;
+  --ok-line: #2c5c39;
+  --bad: #f85149;
+  --bad-soft: #2a1416;
+  --bad-line: #5c2326;
+  --warn: #e3b341;
+  --warn-soft: #2a2113;
+  --warn-line: #5c4a1f;
+}
+
+/* Rules that hardcoded a light-theme colour and cannot follow the tokens. */
+.cn .cn-nav button { color: #b4b4b4; }
+.cn .cn-nav button:hover:not(:disabled):not([aria-current="page"]) { background: #262626; color: var(--text); }
+.cn .cn-nav button[aria-current="page"] { background: #2f2f2f; color: #fff; }
+.cn .cn-nav button:disabled { color: #5a5a5a; }
+.cn .cn-main label { color: #c4c4c4; }
+.cn .cn-pill.on { color: var(--ok); }
+.cn .cn-note { color: #d8d8d8; }
+.cn .cn-warn { color: var(--warn); }
+.cn .cn-ok { color: var(--ok); }
+.cn .cn-error { color: var(--bad); }
+.cn .cn-checklist li.done .cn-check-num { background: var(--ok); color: #0d0d0d; }
+.cn .cn-src-status.trained { color: var(--ok); }
+.cn .cn-src-status.untrained { color: var(--warn); }
+
+/* Primary reads as the one committing action on the screen: white on black. */
+.cn .cn-primary { background: #ececec; color: #0d0d0d; border-color: #ececec; }
+.cn .cn-primary:hover:not(:disabled) { background: #ffffff; border-color: #ffffff; }
+.cn .cn-ghost { background: transparent; color: var(--text); border-color: var(--line-2); }
+.cn .cn-ghost:hover:not(:disabled) { background: #262626; border-color: #4a4a4a; color: #fff; }
+
+/* Code blocks were dark on light; on dark they need to sit *below* the page. */
+.cn .cn-key, .cn .cn-snippet { background: #080808; color: #d4d4d4; border: 1px solid var(--line); }
+.cn .cn-drawer { background: #171717; box-shadow: -18px 0 50px rgba(0, 0, 0, .55); }
+.cn .cn-drawer-overlay { background: rgba(0, 0, 0, .6); }
+.cn .cn-sess-row:hover { background: #202020; }
+.cn .cn-src-card:hover:not(.cn-src-card-static) { background: #262626; border-color: #4a4a4a; color: var(--text); }
+.cn .cn-empty { border-color: var(--line-2); }
+
+/* Inputs: transparent-dark, so the focus ring is what draws the eye. */
+.cn .cn-main input, .cn .cn-main textarea, .cn .cn-main select,
+.cn .cn-switcher select, .cn .cn-newform input { background: #101010; border-color: var(--line-2); color: var(--text); }
+.cn .cn-main input::placeholder, .cn .cn-main textarea::placeholder, .cn .cn-src-search::placeholder { color: #6a6a6a; }
+.cn .cn-main input:focus, .cn .cn-main textarea:focus, .cn .cn-main select:focus { outline-color: #6e6e6e; border-color: #6e6e6e; }
+
+/* Session outcome pill — shares the timeline's tone vocabulary. */
+.cn-sess-pill { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.cn-sess-pill.ok { background: var(--ok-soft); border: 1px solid var(--ok-line); color: var(--ok); }
+.cn-sess-pill.warn { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); }
+.cn-sess-pill.bad { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); }

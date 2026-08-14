@@ -897,6 +897,18 @@ export function SettingsPanel({ product, busy, run }: PanelProps) {
  * here it is the point. Whoever authored the journey needs to see the failed
  * check and the rule that failed, because that is the thing they can fix.
  */
+/**
+ * Outcome → colour. `partial` is amber because the user usually just left;
+ * `failed` and `deadline` are red because the guide could not do its job. The
+ * two must not look alike when you are scanning a list for what went wrong.
+ */
+const TERMINAL_TONE: Record<string, string> = {
+  completed: "ok",
+  partial: "warn",
+  failed: "bad",
+  deadline: "bad",
+};
+
 function describeEvent(e: SessionEvent): { label: string; detail: string; tone: string } {
   const d = (e.detail ?? {}) as Record<string, unknown>;
   switch (e.type) {
@@ -944,7 +956,7 @@ function describeEvent(e: SessionEvent): { label: string; detail: string; tone: 
       return {
         label: `Session ${d.terminal ?? "ended"}`,
         detail: d.voiceMinutes ? `${Number(d.voiceMinutes).toFixed(2)} voice minutes` : "",
-        tone: d.terminal === "completed" ? "ok" : "warn",
+        tone: TERMINAL_TONE[String(d.terminal)] ?? "warn",
       };
     default:
       return { label: e.type, detail: String(e.reason ?? ""), tone: "" };
@@ -985,7 +997,7 @@ export function SessionsPanel({ report, eventCount, identities, events }: PanelP
                 aria-expanded={isOpen}
                 onClick={() => setOpen(isOpen ? null : s.sessionId)}
               >
-                <span className={`cn-src-status ${s.terminal === "completed" ? "trained" : "untrained"}`}>
+                <span className={`cn-sess-pill ${TERMINAL_TONE[String(s.terminal)] ?? "warn"}`}>
                   {s.terminal ?? "in progress"}
                 </span>
                 <span className="cn-sess-who">{describeUser(identities[s.sessionId])}</span>
