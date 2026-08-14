@@ -724,3 +724,12 @@ body:has(.cn[data-theme="dark"]) { background: #0d0d0d; }
   .lp-nav-links { gap: 12px; }
   .lp-nav-links a:not(.lp-cta):not(.lp-ghost) { display: none; }
 }
+
+/* landing — demo video lightbox */
+.lp button.lp-cta { border: 0; }
+.lp-video-dialog { padding: 0; border: 0; border-radius: 16px; background: #000; width: min(960px, 92vw); overflow: visible; }
+.lp-video-dialog::backdrop { background: rgba(5, 5, 10, .82); backdrop-filter: blur(4px); }
+.lp-video-dialog video { display: block; width: 100%; border-radius: 16px; }
+.lp-video-close { position: absolute; top: -14px; right: -14px; width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid #34343e; background: #17171c; color: #ececec; font-size: 14px; line-height: 1; cursor: pointer; }
+.lp-video-close:hover { background: #26262c; }

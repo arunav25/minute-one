@@ -8,6 +8,8 @@
  * pitch deck's funnel numbers appear as the wedge we watch, not as results.
  */
 
+import { DemoVideo } from "./DemoVideo";
+
 const SNIPPET = `<script src="https://minute-one-ten.vercel.app/minute-one.js"
         data-product-key="mo_pk_…"></script>`;
 
@@ -67,11 +69,9 @@ export default function Home() {
             <strong>It never grades its own work.</strong>
           </p>
           <div className="lp-hero-ctas">
-            <a className="lp-cta big" href="/host-test.html">
-              Try the live demo →
-            </a>
-            <a className="lp-ghost big" href="/console">
-              Open the console
+            <DemoVideo className="lp-cta big">▶&nbsp; Watch the demo — 1 min</DemoVideo>
+            <a className="lp-ghost big" href="/host-test.html">
+              Try it live →
             </a>
           </div>
           <p className="lp-fineprint">
@@ -322,8 +322,9 @@ export default function Home() {
           They churn because minute one was silent.
         </h2>
         <div className="lp-hero-ctas center">
-          <a className="lp-cta big" href="/host-test.html">
-            Try the live demo →
+          <DemoVideo className="lp-cta big">▶&nbsp; Watch the demo — 1 min</DemoVideo>
+          <a className="lp-ghost big" href="/host-test.html">
+            Try it live →
           </a>
           <a className="lp-ghost big" href="/console">
             Open the console
