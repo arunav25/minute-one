@@ -23,6 +23,8 @@ export type RuntimeConfig = {
   productName: string;
   mode: "guided" | "answer";
   flow: FlowDefinition | null;
+  /** Every authored journey; the guide chooses by what the user asks for. */
+  flows?: FlowDefinition[];
   persona: string;
   knowledgeTitles: string[];
   /** True when the product has an ingested corpus to retrieve from. */
@@ -129,8 +131,9 @@ export async function boot(options: BootOptions): Promise<MinuteOne> {
   // When the product has an ingested corpus, give the agent the retrieval tool
   // and the endpoint to call. Both are absent otherwise, so nothing changes for
   // a product that only has hand-written notes.
+  const flows = config.flows?.length ? config.flows : [flow];
   if (config.knowledgeSearch) {
-    flow.tools = [...(flow.tools ?? []), SEARCH_KNOWLEDGE_TOOL];
+    for (const f of flows) f.tools = [...(f.tools ?? []), SEARCH_KNOWLEDGE_TOOL];
   }
   const knowledgeSearchEndpoint = config.knowledgeSearch
     ? `${host.replace(/\/$/, "")}/api/minute-one/knowledge/search?key=${encodeURIComponent(
@@ -142,6 +145,7 @@ export async function boot(options: BootOptions): Promise<MinuteOne> {
 
   const guide = new MinuteOne({
     flow,
+    flows,
     createVoiceAdapter:
       options.createVoiceAdapter ??
       (() =>

@@ -19,8 +19,14 @@ export type RuntimeConfig = {
   productId: string;
   productName: string;
   mode: "guided" | "answer";
-  /** Present only in guided mode. */
+  /** Present only in guided mode. The first of `flows`. */
   flow: FlowDefinition | null;
+  /**
+   * Every authored journey. The guide picks between them by what the user
+   * asks for — "add a number" and "send a message" are different paths, not
+   * different steps, and choosing wrongly wastes the user's whole session.
+   */
+  flows: FlowDefinition[];
   persona: string;
   /** Titles only — proof of what grounded the answer, without shipping it all. */
   knowledgeTitles: string[];
@@ -136,34 +142,31 @@ function compileStep(draft: Product["steps"][number], index: number): FlowStep {
 
 export async function compileProduct(product: Product): Promise<RuntimeConfig> {
   const mode: RuntimeConfig["mode"] =
-    product.steps.length > 0 ? "guided" : "answer";
+    product.journeys.some((j) => j.steps.length > 0) ? "guided" : "answer";
 
   // Retrieve at answer time only when there is an ingested corpus to retrieve
   // from. Otherwise fall back to stuffing the hand-written notes into the prompt.
   const knowledgeSearch = await hasKnowledgeBase(product.key);
 
-  const flow: FlowDefinition | null =
-    mode === "guided"
-      ? {
-          id: product.id,
-          name: product.goal || `Get started with ${product.name}`,
-          goalPhrases:
-            product.goalPhrases.length > 0
-              ? product.goalPhrases
-              : [product.goal || "get started"],
-          maxSessionSeconds: 480,
-          maxVoiceMinutes: 8,
-          steps: product.steps.map(compileStep),
-          persona: buildPersona(product, mode, knowledgeSearch),
-        }
-      : null;
+  const persona = buildPersona(product, mode, knowledgeSearch);
+  const flows: FlowDefinition[] = product.journeys.map((j, i) => ({
+    id: `${product.id}:${j.id || `journey-${i + 1}`}`,
+    name: j.goal || `Get started with ${product.name}`,
+    goalPhrases:
+      j.goalPhrases.length > 0 ? j.goalPhrases : [j.goal || "get started"],
+    maxSessionSeconds: 480,
+    maxVoiceMinutes: 8,
+    steps: j.steps.map(compileStep),
+    persona,
+  }));
 
   return {
     productId: product.id,
     productName: product.name,
     mode,
-    flow,
-    persona: buildPersona(product, mode, knowledgeSearch),
+    flow: flows[0] ?? null,
+    flows,
+    persona,
     knowledgeTitles: product.knowledge.map((k) => k.title),
     knowledgeSearch,
   };

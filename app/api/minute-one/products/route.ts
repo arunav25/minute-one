@@ -91,6 +91,9 @@ export async function POST(req: Request) {
         steps: Array.isArray(body.steps)
           ? (body.steps as Parameters<typeof updateProduct>[1]["steps"])
           : undefined,
+        journeys: Array.isArray(body.journeys)
+          ? (body.journeys as Parameters<typeof updateProduct>[1]["journeys"])
+          : undefined,
         allowedOrigins: Array.isArray(body.allowedOrigins)
           ? body.allowedOrigins.map(String)
           : undefined,

@@ -25,7 +25,14 @@ import { Spotlight, type TargetResolutionStatus } from "./spotlight";
  */
 
 export type MinuteOneConfig = {
+  /** The active journey. Swapped for whichever of `flows` the user asked for. */
   flow: FlowDefinition;
+  /**
+   * Every authored journey. "Add a number" and "send a message" are different
+   * paths through the same app; which one the user wants is only knowable once
+   * they say it, so the controller is rebuilt around the match.
+   */
+  flows?: FlowDefinition[];
   /** Factory so the SDK never holds a provider instance it did not create. */
   createVoiceAdapter: () => VoiceAdapter;
   /** Only reachable from an explicit user action after a real failure. */
@@ -251,16 +258,18 @@ export class MinuteOne {
     this.overlay?.render(this.view);
   }
 
-  private async begin(adapter: VoiceAdapter, fallbackReason: string | null) {
-    this.stopped = false;
-    this.finished = false;
-    this.adapter = adapter;
-    this.sink = new InMemoryEventSink();
-    this.sessionId = `s_${Date.now().toString(36)}`;
-
+  /**
+   * Build a controller around the active journey.
+   *
+   * Separated out because the journey is not known when voice connects — the
+   * user has not said what they want yet. Once they do, the controller is
+   * rebuilt around the journey they asked for.
+   */
+  private makeController(): SessionController {
+    const adapter = this.adapter!;
     const observer = this.observer!;
-    const controller = new SessionController({
-      sessionId: this.sessionId,
+    return new SessionController({
+      sessionId: this.sessionId!,
       flow: this.config.flow,
       budgets: {
         maxSessionSeconds: this.config.flow.maxSessionSeconds,
@@ -279,7 +288,39 @@ export class MinuteOne {
         waitForChange: (fp, ms) => observer.waitForChange(fp, ms),
       },
     });
-    this.controller = controller;
+  }
+
+  /**
+   * Which journey the user just asked for.
+   *
+   * Matched on the goal phrases each journey declares. Longest phrase first, so
+   * "send a message" beats a journey that merely lists "message" — the specific
+   * reading of an utterance should win over the vague one.
+   */
+  private matchFlow(text: string): FlowDefinition | null {
+    const said = text.toLowerCase();
+    const all = this.config.flows?.length ? this.config.flows : [this.config.flow];
+    let best: { flow: FlowDefinition; len: number } | null = null;
+    for (const flow of all) {
+      for (const phrase of flow.goalPhrases) {
+        const p = phrase.toLowerCase().trim();
+        if (p && said.includes(p) && (!best || p.length > best.len)) {
+          best = { flow, len: p.length };
+        }
+      }
+    }
+    return best?.flow ?? null;
+  }
+
+  private async begin(adapter: VoiceAdapter, fallbackReason: string | null) {
+    this.stopped = false;
+    this.finished = false;
+    this.adapter = adapter;
+    this.sink = new InMemoryEventSink();
+    this.sessionId = `s_${Date.now().toString(36)}`;
+
+    const observer = this.observer!;
+    this.controller = this.makeController();
 
     await adapter.connect({
       persona: this.config.flow.persona ?? DEFAULT_PERSONA,
@@ -355,7 +396,7 @@ export class MinuteOne {
       status: proof.isRealVoice ? "Listening" : "Preview — nobody is listening",
     });
 
-    await controller.start({
+    await this.controller!.start({
       provider: proof.provider,
       model: proof.model,
       isRealVoice: proof.isRealVoice,
@@ -368,13 +409,31 @@ export class MinuteOne {
     const c = this.controller;
     if (!c) return;
     if (c.current.state === "selecting_goal") {
-      if (await c.selectGoal(text)) {
+      // Pick the journey they asked for before the controller commits. Without
+      // this the first journey answered for every request, so "send a message"
+      // walked the user through buying a phone number.
+      const wanted = this.matchFlow(text);
+      if (wanted && wanted.id !== this.config.flow.id) {
+        this.config = { ...this.config, flow: wanted };
+        this.patch({ stepCount: wanted.steps.length });
+        this.controller = this.makeController();
+        await this.controller.start({
+          provider: this.adapter!.proof.provider,
+          model: this.adapter!.proof.model,
+          isRealVoice: this.adapter!.proof.isRealVoice,
+          providerSessionId: this.adapter!.proof.sessionId,
+          fallbackReason: null,
+        });
+      }
+      const c2 = this.controller!;
+      if (await c2.selectGoal(text)) {
         this.patch({ status: "Right, let's do that" });
         void this.drive();
       } else {
-        this.patch({
-          status: `I can only walk you through "${this.config.flow.name}" here`,
-        });
+        const names = (this.config.flows ?? [this.config.flow])
+          .map((f) => `"${f.name}"`)
+          .join(" or ");
+        this.patch({ status: `I can walk you through ${names}` });
       }
       return;
     }

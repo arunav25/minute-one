@@ -42,6 +42,21 @@ export type JourneyStepDraft = {
   successRoute?: string;
 };
 
+/**
+ * One authored journey.
+ *
+ * A product has several: "add a number" and "send a message" are different
+ * paths through the same app, chosen by what the user asks for, not by
+ * position in a list. The engine already matched a spoken goal against
+ * `goalPhrases`; it just had nowhere to choose *between* journeys.
+ */
+export type Journey = {
+  id: string;
+  goal: string;
+  goalPhrases: string[];
+  steps: JourneyStepDraft[];
+};
+
 export type Product = {
   id: string;
   key: string;
@@ -50,9 +65,11 @@ export type Product = {
   allowedOrigins: string[];
   knowledge: KnowledgeEntry[];
   /** Optional authored journey. Without it the guide answers but cannot verify. */
+  /** The first journey's fields, kept so older records still load. */
   goal: string;
   goalPhrases: string[];
   steps: JourneyStepDraft[];
+  journeys: Journey[];
   createdAt: string;
 };
 
@@ -81,6 +98,21 @@ function normalise(raw: Partial<Product>): Product {
     goal: raw.goal ?? "",
     goalPhrases: Array.isArray(raw.goalPhrases) ? raw.goalPhrases : [],
     steps: Array.isArray(raw.steps) ? raw.steps : [],
+    // A record written before journeys existed carries its single journey in
+    // the top-level fields; it is lifted into the list rather than migrated in
+    // place, so an older Minute One reading the same row still works.
+    journeys: Array.isArray(raw.journeys) && raw.journeys.length > 0
+      ? raw.journeys
+      : Array.isArray(raw.steps) && raw.steps.length > 0
+        ? [
+            {
+              id: "journey-1",
+              goal: raw.goal ?? "",
+              goalPhrases: Array.isArray(raw.goalPhrases) ? raw.goalPhrases : [],
+              steps: raw.steps,
+            },
+          ]
+        : [],
     createdAt: raw.createdAt ?? new Date().toISOString(),
   };
 }
@@ -164,6 +196,7 @@ export async function createProduct(name: string): Promise<Product> {
     goal: "",
     goalPhrases: [],
     steps: [],
+    journeys: [],
     createdAt: new Date().toISOString(),
   };
   products.push(product);
