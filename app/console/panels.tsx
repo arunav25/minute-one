@@ -5,9 +5,11 @@ import type { ReportData, SessionEvent } from "@minute-one/core";
 import {
   api,
   setupState,
+  searchKnowledge,
   trainAgent,
   useSources,
   type DataSource,
+  type SearchHit,
   type JourneyStep,
   type Product,
   type SessionIdentity,
@@ -1087,5 +1089,225 @@ function describeUser(identity: SessionIdentity | undefined) {
       {who}
       {identity.companyName ? <span className="cn-muted"> · {identity.companyName}</span> : null}
     </span>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Search — what the agent would retrieve                                     */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Ask the knowledge base a question and see exactly what comes back.
+ *
+ * Retrieval is the part of this product that fails quietly: the agent always
+ * gets its nearest neighbours, so a gap in the corpus does not read as "I don't
+ * know" — it reads as a confident answer assembled from whatever was closest.
+ * The only way to catch that before a customer does is to look at the passages,
+ * which is what this is for. It calls the same endpoint the `search_knowledge`
+ * tool calls mid-call, so there is no second code path to drift.
+ */
+export function SearchPanel({ product }: PanelProps) {
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<SearchHit[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const ask = async (question: string) => {
+    if (!question.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      setHits(await searchKnowledge(product.key, question));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setHits(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const suggestions = [
+    product.goal || "how do I get started",
+    "how much does it cost",
+    "how do I add a phone number",
+  ];
+
+  return (
+    <>
+      <PanelHead
+        title="Search"
+        lede="Ask what a user would ask. This is the passage set the guide answers from — if the right article is not here, it cannot say the right thing."
+      />
+
+      <form
+        className="cn-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void ask(q);
+        }}
+      >
+        <input
+          className="cn-src-search"
+          style={{ maxWidth: "none", flex: 1 }}
+          placeholder="How do I add a phone number?"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          data-testid="search-q"
+        />
+        <button className="cn-primary" style={{ marginTop: 0 }} disabled={busy}>
+          {busy ? "Searching…" : "Search"}
+        </button>
+      </form>
+
+      <div className="cn-chips">
+        {suggestions.map((s) => (
+          <button
+            key={s}
+            className="cn-chip"
+            onClick={() => {
+              setQ(s);
+              void ask(s);
+            }}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {error && <div className="cn-error">{error}</div>}
+
+      {hits && hits.length === 0 && (
+        <div className="cn-empty">
+          <h3>Nothing came back</h3>
+          <p>
+            The guide would say it does not have that information. If it should
+            know this, add it under Data sources and train.
+          </p>
+        </div>
+      )}
+
+      {hits && hits.length > 0 && (
+        <ul className="cn-hits" data-testid="search-hits">
+          {hits.map((h, i) => (
+            <li key={i}>
+              <div className="cn-hit-head">
+                <strong>{h.title}</strong>
+                <span className={`cn-score ${h.score >= 0.45 ? "ok" : "warn"}`}>
+                  {h.score.toFixed(3)}
+                </span>
+              </div>
+              <p>{h.text.slice(0, 320)}…</p>
+              {h.url && (
+                <a href={h.url} target="_blank" rel="noreferrer">
+                  {h.url}
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Users                                                                      */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The people this guide has actually run for.
+ *
+ * Built from the identity a host passes with its sessions, so it is only ever
+ * as complete as that host chose to be — a product that identifies nobody gets
+ * an honest empty state rather than a list of invented anonymous rows.
+ */
+export function UsersPanel({ report, identities, eventCount }: PanelProps) {
+  const sessions = report?.sessions ?? [];
+  const people = new Map<
+    string,
+    { name: string; detail: string; runs: number; completed: number; last: string | null }
+  >();
+
+  for (const s of sessions) {
+    const id = identities[s.sessionId];
+    if (!id) continue;
+    const key = id.userId ?? id.email ?? id.name ?? s.sessionId;
+    const row = people.get(key) ?? {
+      name: id.name ?? id.email ?? key,
+      detail: [id.email, id.companyName].filter(Boolean).join(" · "),
+      runs: 0,
+      completed: 0,
+      last: null,
+    };
+    row.runs += 1;
+    if (s.terminal === "completed") row.completed += 1;
+    people.set(key, row);
+  }
+
+  const rows = [...people.values()].sort((a, b) => b.runs - a.runs);
+  const unidentified = sessions.length - [...people.values()].reduce((n, r) => n + r.runs, 0);
+
+  if (eventCount === 0) {
+    return (
+      <>
+        <PanelHead title="Users" lede="Who this product's guide has run for." />
+        <div className="cn-empty">
+          <h3>No sessions yet</h3>
+          <p>Install the snippet and open the page you put it on.</p>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <PanelHead
+        title="Users"
+        lede="Who this product's guide has run for. Identity comes from the host application — it is reported with sessions and never sent to the voice provider."
+      />
+
+      {rows.length === 0 ? (
+        <div className="cn-empty">
+          <h3>Nobody identified</h3>
+          <p>
+            {sessions.length} session{sessions.length === 1 ? "" : "s"} ran without
+            an identity. Pass <code>user</code> in <code>window.minuteOneSettings</code>{" "}
+            to attribute a run to a real person.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="cn-scroll">
+            <table className="cn-table">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th>Runs</th>
+                  <th>Completed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.name}>
+                    <td>
+                      <strong>{r.name}</strong>
+                      {r.detail && <div className="cn-muted">{r.detail}</div>}
+                    </td>
+                    <td>{r.runs}</td>
+                    <td>{r.completed}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {unidentified > 0 && (
+            <p className="cn-muted" style={{ marginTop: 12 }}>
+              {unidentified} further session{unidentified === 1 ? "" : "s"} ran
+              without an identity.
+            </p>
+          )}
+        </>
+      )}
+    </>
   );
 }

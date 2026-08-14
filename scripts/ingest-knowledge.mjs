@@ -131,6 +131,11 @@ function toText(body) {
     .replace(/&gt;/g, ">")
     .replace(/&#39;|&rsquo;|&lsquo;/g, "'")
     .replace(/&quot;|&ldquo;|&rdquo;/g, '"')
+    // Numeric entities, decimal and hex. Intercom exports use the hex form
+    // (&#x27; for an apostrophe), which the named list above misses — and the
+    // agent reads these passages out loud, so "you&#x27;ll" is not cosmetic.
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(Number(dec)))
     .replace(/^#+\s*/gm, "")
     .replace(/[ \t]+/g, " ")
     .replace(/\n{3,}/g, "\n\n")

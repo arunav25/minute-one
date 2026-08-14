@@ -269,3 +269,23 @@ export function setupState(product: Product | null, hasSessions: boolean) {
     },
   ];
 }
+
+/** One retrieved passage, exactly as the voice agent receives it. */
+export type SearchHit = { title: string; url: string; text: string; score: number };
+
+/**
+ * Ask the knowledge base what it would hand the agent for a question.
+ *
+ * The same endpoint the `search_knowledge` tool calls mid-call, so what this
+ * screen shows is what the guide would actually answer from — not a preview
+ * built from a different code path that could drift from it.
+ */
+export async function searchKnowledge(productKey: string, q: string) {
+  const res = await fetch(
+    `/api/minute-one/knowledge/search?key=${encodeURIComponent(productKey)}&q=${encodeURIComponent(q)}&k=5`,
+    { cache: "no-store" }
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? `search failed (${res.status})`);
+  return (data.hits ?? []) as SearchHit[];
+}

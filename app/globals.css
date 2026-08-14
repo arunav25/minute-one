@@ -589,3 +589,17 @@ body:has(.cn) { background: #0d0d0d; }
 .cn-sess-pill.ok { background: var(--ok-soft); border: 1px solid var(--ok-line); color: var(--ok); }
 .cn-sess-pill.warn { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); }
 .cn-sess-pill.bad { background: var(--bad-soft); border: 1px solid var(--bad-line); color: var(--bad); }
+
+/* Search playground + suggestion chips. */
+.cn-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.cn-chip { padding: 5px 11px; font: inherit; font-size: 12.5px; color: var(--dim); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+.cn-chip:hover { border-color: var(--line-2); color: var(--text); }
+.cn-hits { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cn-hits li { padding: 13px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.cn-hit-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.cn-hits p { margin: 6px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.6; }
+.cn-hits a { font-size: 11.5px; color: var(--faint); text-decoration: none; display: inline-block; margin-top: 7px; overflow-wrap: anywhere; }
+.cn-hits a:hover { text-decoration: underline; }
+.cn-score { font: 500 11px/1.6 ui-monospace, monospace; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.cn-score.ok { background: var(--ok-soft); border: 1px solid var(--ok-line); color: var(--ok); }
+.cn-score.warn { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); }

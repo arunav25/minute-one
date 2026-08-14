@@ -5,11 +5,13 @@ import { api, useProductReport, useProducts } from "./console-data";
 import {
   InstallPanel,
   JourneyPanel,
+  SearchPanel,
   KnowledgePanel,
   OverviewPanel,
   SessionsPanel,
   SettingsPanel,
   SetupPanel,
+  UsersPanel,
 } from "./panels";
 
 /**
@@ -31,17 +33,26 @@ const SECTIONS = [
     ],
   },
   {
-    group: "Configure",
+    group: "Knowledge",
     items: [
       { id: "knowledge", label: "Data sources" },
+      { id: "search", label: "Search" },
       { id: "journey", label: "Journey" },
+    ],
+  },
+  {
+    group: "Install",
+    items: [
       { id: "install", label: "Install snippet" },
       { id: "settings", label: "Settings" },
     ],
   },
   {
     group: "Monitor",
-    items: [{ id: "sessions", label: "Sessions" }],
+    items: [
+      { id: "sessions", label: "Sessions" },
+      { id: "users", label: "Users" },
+    ],
   },
 ];
 
@@ -191,7 +202,9 @@ export function ConsoleView() {
             {section === "journey" && <JourneyPanel {...panelProps} />}
             {section === "install" && <InstallPanel {...panelProps} />}
             {section === "settings" && <SettingsPanel {...panelProps} />}
+            {section === "search" && <SearchPanel {...panelProps} />}
             {section === "sessions" && <SessionsPanel {...panelProps} />}
+            {section === "users" && <UsersPanel {...panelProps} />}
           </>
         )}
       </main>
