@@ -401,11 +401,13 @@ function buildAgentSettings(
         temperature: 0.2,
       },
       prompt,
+      // A function with no `endpoint` is the API's way of saying "call this on
+      // the client". There is no `client_side` field to set — sending one is an
+      // unknown key, and Deepgram rejects the whole settings message for it.
       functions: (options.tools ?? []).map((tool) => ({
         name: tool.name,
         description: tool.description,
         parameters: tool.parameters,
-        client_side: true,
       })),
     },
     speak: {

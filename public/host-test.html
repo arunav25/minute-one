@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Get Started — host test page</title>
+<!--
+  Test host page for the product-key install path.
+
+  This is NOT part of Minute One. It stands in for a customer's application so
+  the snippet can be exercised exactly as a customer would install it: one
+  script tag, no imperative JavaScript. The controls below match the JustCall
+  product's authored journey, so a real verification can pass or fail here
+  rather than being simulated.
+
+  Open:  https://localhost:3200/host-test.html
+-->
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #16141f; background: #f6f7fb; }
+  header { display: flex; align-items: center; gap: 10px; padding: 14px 28px; background: #fff; border-bottom: 1px solid #e6e4ee; }
+  .logo { width: 26px; height: 26px; border-radius: 7px; background: #1f7a5c; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px; }
+  main { max-width: 780px; margin: 0 auto; padding: 34px 24px 80px; }
+  h1 { font-size: 25px; margin: 0 0 6px; }
+  .lede { color: #5d5972; margin: 0 0 26px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .card { background: #fff; border: 1px solid #e6e4ee; border-radius: 12px; padding: 16px; }
+  .card h3 { margin: 0 0 4px; font-size: 15px; }
+  .card p { margin: 0 0 12px; font-size: 13px; color: #5d5972; }
+  button { font: inherit; font-size: 14px; font-weight: 500; padding: 8px 14px; border-radius: 8px; cursor: pointer; border: 1px solid #d8d5e4; background: #fff; color: #16141f; }
+  button.primary { background: #1f7a5c; border-color: #1f7a5c; color: #fff; }
+  dialog { border: 0; border-radius: 14px; padding: 22px; max-width: 460px; width: 92vw; box-shadow: 0 24px 60px rgba(20,16,41,.22); }
+  dialog::backdrop { background: rgba(20,16,41,.4); }
+  dialog h2 { margin: 0 0 4px; font-size: 18px; }
+  dialog .hint { font-size: 13px; color: #5d5972; margin: 0 0 14px; }
+  label { display: block; font-size: 12px; font-weight: 500; margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 8px 10px; font: inherit; font-size: 14px; border: 1px solid #d8d5e4; border-radius: 8px; }
+  .row { display: flex; gap: 8px; margin-top: 16px; }
+</style>
+</head>
+<body>
+  <header>
+    <span class="logo">J</span>
+    <strong>JustCall</strong>
+    <span style="color:#8b8799;font-size:13px">Get Started</span>
+  </header>
+
+  <main>
+    <h1>Welcome to JustCall</h1>
+    <p class="lede">A few things to set up before your first call.</p>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Invite your team</h3>
+        <p>Give teammates their own login and number.</p>
+        <!-- The journey's target: role=button, accessible name "Invite your team". -->
+        <button class="primary" id="invite">Invite your team</button>
+      </div>
+      <div class="card">
+        <h3>Make a call</h3>
+        <p>Dial your first number from the browser.</p>
+        <button>Make a call</button>
+      </div>
+      <div class="card">
+        <h3>Add a number</h3>
+        <p>Get a local number in 85+ countries.</p>
+        <button>Add Number</button>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="invite-dialog">
+    <h2>Invite your team</h2>
+    <!-- The step's success condition looks for this sentence being visible. -->
+    <p class="hint">Their login and this workspace will be shared with the invited team members.</p>
+    <label for="email">Work email</label>
+    <input id="email" type="email" placeholder="teammate@company.com" />
+    <label for="role">Role</label>
+    <select id="role"><option>Agent</option><option>Admin</option></select>
+    <div class="row">
+      <button class="primary">Send invite</button>
+      <button id="cancel">Cancel</button>
+    </div>
+  </dialog>
+
+  <script>
+    const dialog = document.getElementById("invite-dialog");
+    document.getElementById("invite").addEventListener("click", () => dialog.showModal());
+    document.getElementById("cancel").addEventListener("click", () => dialog.close());
+  </script>
+
+  <!-- The entire integration: one tag, copied from the console's Install snippet. -->
+  <script src="/minute-one.js" data-product-key="mo_pk_9c2b11bbcef62f212c9bafd7"></script>
+</body>
+</html>

@@ -160,6 +160,62 @@ describe("DeepgramVoiceAdapter", () => {
     ]);
   });
 
+  /**
+   * Deepgram validates the settings message strictly and rejects the whole
+   * `think` object for one unknown key — with an error that names the field but
+   * not the offender. A declared function is called client-side by *omitting*
+   * `endpoint`; there is no `client_side` flag to send. Sending one took real
+   * voice down for every flow that declared a tool, and no unit test caught it,
+   * so the outgoing shape is pinned here.
+   */
+  it("declares client-side functions by omitting endpoint, sending no extra keys", async () => {
+    const session = new FakeSession();
+    let config: AgentSessionConfig | null = null;
+    const adapter = new DeepgramVoiceAdapter({
+      fetchImpl: tokenFetch as unknown as typeof fetch,
+      createSession: (value) => {
+        config = value;
+        return session;
+      },
+      createMicrophone: () => ({ start: async () => {}, stop: vi.fn() }),
+      createPlayer: () => ({ queue: vi.fn(), interrupt: vi.fn(), dispose: vi.fn() }),
+    });
+
+    await adapter.connect({
+      persona: "Answer from retrieved passages.",
+      tools: [
+        {
+          name: "search_knowledge",
+          description: "Look up help-center articles",
+          parameters: {
+            type: "object",
+            properties: { query: { type: "string" } },
+            required: ["query"],
+          },
+        },
+      ],
+      handlers: {},
+    });
+
+    const think = (config as unknown as { agent: { think: { functions: unknown[] } } })
+      .agent.think;
+    expect(think.functions).toEqual([
+      {
+        name: "search_knowledge",
+        description: "Look up help-center articles",
+        parameters: {
+          type: "object",
+          properties: { query: { type: "string" } },
+          required: ["query"],
+        },
+      },
+    ]);
+    // Named explicitly: the exact key that broke it, and the one that would
+    // silently turn a client-side tool into a server call.
+    expect(JSON.stringify(think.functions)).not.toContain("client_side");
+    expect(JSON.stringify(think.functions)).not.toContain("endpoint");
+  });
+
   it("injects instructions, updates context, plays audio, and handles barge-in", async () => {
     const session = new FakeSession();
     const player = { queue: vi.fn(), interrupt: vi.fn(), dispose: vi.fn() };
