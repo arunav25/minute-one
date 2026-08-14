@@ -1,7 +1,16 @@
 # Curated onboarding set for the panel demo.
-# Theme: getting started + buying / porting a phone number.
 # One article id per line. Blank lines and #-comments are ignored.
 # Pass to the ingester with:  --include=scripts/knowledge-onboarding.txt
+#
+# Cover every task the product's Get Started page offers.
+#
+# Semantic search always returns its nearest neighbours, however far away they
+# are. With no campaign article in the corpus, "how do I set up automated
+# calling?" retrieved "Setup a Team Phone number" at a perfectly ordinary score
+# and the guide confidently invented a flow through the Teams section. A
+# relevance threshold would not have caught it — that hit scored higher than
+# the correct answer to a question the corpus *does* cover. The fix for a gap
+# in the corpus is to close the gap.
 
 796061      # Setting up new JustCall account
 803376      # Getting a New Phone Number on JustCall
@@ -14,3 +23,17 @@
 803355      # How to port our existing phone numbers to JustCall
 803706      # Documents required for number porting
 8206438     # Videos: Setting Up JustCall
+
+# Get Started task 1 — "Setup your first outbound campaign for automated calling"
+2284808     # Creating Campaigns in Sales Dialer
+2281469     # Call specific contacts from AutoDialer
+2282423     # Sales Script in Auto Dialer
+5304046     # Importing Google Sheets in Sales Dialer
+3942359     # Resolving CSV upload issues in an AutoDialer campaign
+
+# Get Started task 2 — "Discover Integrations or add your contacts"
+2018768     # How to import contacts and call logs
+
+# Get Started task 3 — "Add team members"
+2162514     # How to add a Team member
+2376483     # Manage access level of your team member

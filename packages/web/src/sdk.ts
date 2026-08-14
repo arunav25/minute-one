@@ -155,7 +155,7 @@ export class MinuteOne {
       this.patch({
         running: false,
         connectionError: message,
-        status: "Voice connection failed",
+        status: "Couldn't start",
         proof: null,
       });
     }
@@ -333,9 +333,9 @@ export class MinuteOne {
       proof,
       stage: "Listening",
       connectionError: null,
-      status: proof.isRealVoice
-        ? `Connected to ${providerLabel(proof.provider)}`
-        : "Demo mode (not real voice)",
+      // Never name the speech vendor here: this string is rendered straight
+      // into the panel the guided user is looking at.
+      status: proof.isRealVoice ? "Listening" : "Preview — nobody is listening",
     });
 
     await controller.start({
@@ -352,11 +352,11 @@ export class MinuteOne {
     if (!c) return;
     if (c.current.state === "selecting_goal") {
       if (await c.selectGoal(text)) {
-        this.patch({ status: "Goal locked" });
+        this.patch({ status: "Right, let's do that" });
         void this.drive();
       } else {
         this.patch({
-          status: `Only "${this.config.flow.name}" is supported in this build`,
+          status: `I can only walk you through "${this.config.flow.name}" here`,
         });
       }
       return;
@@ -447,7 +447,7 @@ export class MinuteOne {
     const c = this.controller;
     if (!c) return;
     if (await c.selectGoal(this.config.flow.goalPhrases[0])) {
-      this.patch({ status: "Goal locked" });
+      this.patch({ status: "Right, let's do that" });
       void this.drive();
     }
   }
@@ -511,7 +511,7 @@ export class MinuteOne {
               ]?.text ?? ""),
         status:
           after.state === "recovering"
-            ? "Check failed — correcting"
+            ? "Let's try that again"
             : "Waiting for you",
         stage: isTerminal(after.state)
           ? after.state === "completed"
@@ -594,7 +594,9 @@ export class MinuteOne {
       offeringHandoff: false,
       terminal: c.current.state,
       terminalReason: c.current.terminalReason,
-      status: `Session ${c.current.state}`,
+      // Engine state names are audit vocabulary; the overlay titles the
+      // outcome in plain language instead.
+      status: "",
       stage: c.current.state === "completed" ? "Complete" : null,
       targetNote: null,
       proof: this.adapter?.proof ?? null,
@@ -622,13 +624,6 @@ export class MinuteOne {
 
 const DEFAULT_PERSONA =
   "You are a concise onboarding guide. Give one action at a time. Never claim a step succeeded until the controller reports verification passed.";
-
-const providerLabel = (provider: string) =>
-  provider === "deepgram"
-    ? "Deepgram"
-    : provider === "pyai"
-      ? "PyAI"
-      : provider;
 
 /** Functional entry point, mirroring the script-tag surface. */
 export function init(config: MinuteOneConfig): MinuteOne {

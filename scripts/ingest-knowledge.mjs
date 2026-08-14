@@ -240,8 +240,12 @@ for (const file of files) {
 }
 console.log(`${articleCount} articles → ${pending.length} chunks; embedding…`);
 
-// Re-ingest replaces this product's rows so stale chunks never linger.
-await sql`DELETE FROM knowledge_chunks WHERE product_key = ${productKey}`;
+// Re-ingest replaces this product's imported rows so stale chunks never linger.
+// Notes added in the console are left alone: they carry a `kb_` article id, and
+// wiping somebody's hand-written answers because an archive was re-imported is
+// not something a re-run should ever do silently.
+await sql`DELETE FROM knowledge_chunks
+          WHERE product_key = ${productKey} AND article_id NOT LIKE 'kb\\_%'`;
 
 const BATCH = 96;
 let done = 0;

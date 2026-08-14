@@ -44,8 +44,8 @@ function buildPersona(
     `You are Minute One, a concise voice guide embedded in ${product.name}.`,
     "",
     knowledgeSearch
-      ? "When the user asks a product or how-to question, call the search_knowledge tool with their question and answer only from the passages it returns. If it returns nothing useful, say you do not know and offer to connect the user to a person. Never invent a feature, a price, a button, or an account state."
-      : "Answer only from the knowledge below. If the answer is not there, say you do not know and offer to connect the user to a person. Never invent a feature, a price, a button, or an account state.",
+      ? "When the user asks a product or how-to question, call the search_knowledge tool with their question and answer only from the passages it returns. If it returns nothing useful, say plainly that you do not have that information — do not guess, and do not offer to fetch a human, because you cannot. Never invent a feature, a price, a button, a menu item, or an account state."
+      : "Answer only from the knowledge below. If the answer is not there, say plainly that you do not have that information — do not guess, and do not offer to fetch a human, because you cannot. Never invent a feature, a price, a button, a menu item, or an account state.",
     "",
     /*
      * Where the user already is.

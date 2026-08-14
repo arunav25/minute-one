@@ -432,6 +432,8 @@ const TERMINAL_TITLE: Record<string, string> = {
 const TERMINAL_NOTE: Record<string, string> = {
   completed: "You're set up. You can close this.",
   partial: "You can pick this up again whenever you like.",
-  failed: "Nothing was changed in your account. Try again, or ask for a person.",
+  // No offer to fetch a human: Minute One cannot summon one, and a promise it
+  // cannot keep is worse than no offer.
+  failed: "Nothing was changed in your account. You can try again.",
   deadline: "The guide timed out. Start again when you have a moment.",
 };
