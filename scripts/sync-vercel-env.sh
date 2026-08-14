@@ -75,8 +75,18 @@ while IFS= read -r line || [ -n "$line" ]; do
       continue
       ;;
     DEEPGRAM_ALLOWED_ORIGINS|PYAI_ALLOWED_ORIGINS)
-      value="$PROD_URL"
-      echo "  set   $name → $PROD_URL (replaced localhost)"
+      # Keep every non-localhost origin already in the file — a tunnel or a
+      # preprod host is deliberate configuration, and replacing the whole list
+      # with the deployed URL would silently revoke it. Localhost entries are
+      # dropped because they cannot mean anything to a deployed server.
+      kept="$(printf '%s' "$value" | tr ',' '\n' \
+        | sed 's/[[:space:]]//g' \
+        | grep -v '^$' \
+        | grep -vE '^https?://(localhost|127\.0\.0\.1)(:[0-9]+)?$' \
+        | grep -vF "$PROD_URL" \
+        | paste -sd, -)"
+      value="$PROD_URL${kept:+,$kept}"
+      echo "  set   $name → $value"
       ;;
     *)
       echo "  set   $name"
