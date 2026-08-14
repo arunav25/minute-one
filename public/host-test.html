@@ -90,7 +90,18 @@
     document.getElementById("cancel").addEventListener("click", () => dialog.close());
   </script>
 
-  <!-- The entire integration: one tag, copied from the console's Install snippet. -->
+  <!--
+    The entire integration: one tag, copied from the console's Install snippet.
+    The settings object is the optional half — it names the signed-in user so a
+    session in the console can be traced to a real person. It is reported with
+    events and never handed to the voice provider.
+  -->
+  <script>
+    window.minuteOneSettings = {
+      user: { id: "u_alex", name: "Alex Morgan", email: "alex@justcall.test" },
+      company: { id: "c_justcall", name: "JustCall" },
+    };
+  </script>
   <script src="/minute-one.js" data-product-key="mo_pk_9c2b11bbcef62f212c9bafd7"></script>
 </body>
 </html>

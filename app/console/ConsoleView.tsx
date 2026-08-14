@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, useProductReport, useProducts } from "./console-data";
 import {
   InstallPanel,
@@ -23,6 +23,18 @@ import {
  *
  * Deliberately unauthenticated and single-tenant — see DISCLOSURE.md.
  */
+
+/**
+ * Who is signed in to the console.
+ *
+ * Display only. Minute One has no authentication yet — see DISCLOSURE.md — so
+ * this is configuration, not a session, and it says so rather than implying a
+ * login that does not exist.
+ */
+const CONSOLE_USER = {
+  name: process.env.NEXT_PUBLIC_CONSOLE_USER_NAME || "Arunav Malhotra",
+  email: process.env.NEXT_PUBLIC_CONSOLE_USER_EMAIL || "arunav@saaslabs.co",
+};
 
 const SECTIONS = [
   {
@@ -71,6 +83,32 @@ export function ConsoleView() {
     selected?.key ?? null
   );
 
+  /*
+   * Theme.
+   *
+   * Dark is the default because this is a tool people sit in for a while, and
+   * because the one place brand colour appears is the mark. The choice is kept
+   * in localStorage rather than following the OS: an operator who has picked
+   * light on a bright desk should not be flipped back at sunset by the system.
+   */
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  useEffect(() => {
+    const saved = window.localStorage.getItem("minute-one-theme");
+    if (saved === "light" || saved === "dark") setTheme(saved);
+  }, []);
+
+  /*
+   * Written on the click, not in an effect on `theme`.
+   *
+   * An effect keyed on the value also fires on mount, with the default — so the
+   * first render wrote "dark" over a saved "light" before the restoring effect
+   * could be read back, and the preference silently reset on every reload.
+   */
+  const chooseTheme = (next: "dark" | "light") => {
+    setTheme(next);
+    window.localStorage.setItem("minute-one-theme", next);
+  };
+
   const [section, setSection] = useState("overview");
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
@@ -80,7 +118,7 @@ export function ConsoleView() {
     : null;
 
   return (
-    <div className="cn">
+    <div className="cn" data-theme={theme}>
       <aside className="cn-side">
         <div className="cn-brand">
           <img className="cn-logo" src="/brand/icon.svg" alt="" width={30} height={30} />
@@ -165,8 +203,26 @@ export function ConsoleView() {
         </nav>
 
         <div className="cn-side-foot">
+          <button
+            className="cn-theme"
+            data-testid="theme-toggle"
+            onClick={() => chooseTheme(theme === "dark" ? "light" : "dark")}
+            aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            <span aria-hidden="true">{theme === "dark" ? "☾" : "☀"}</span>
+            {theme === "dark" ? "Dark" : "Light"}
+          </button>
           <a href="/embed-test">Demo product</a>
           <a href="/report">Full report</a>
+          <div className="cn-account">
+            <span className="cn-avatar" aria-hidden="true">
+              {CONSOLE_USER.name.charAt(0)}
+            </span>
+            <div>
+              <strong>{CONSOLE_USER.name}</strong>
+              <span className="cn-muted">{CONSOLE_USER.email}</span>
+            </div>
+          </div>
         </div>
       </aside>
 

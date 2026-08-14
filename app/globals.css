@@ -503,9 +503,9 @@ button {
 }
 
 /* ---------------------------------------------------------------------------
- * Console theme — dark, near-monochrome.
+ * Console theme — dark, near-monochrome. Light is the tokens above.
  *
- * Scoped to `.cn`, never to `:root`. The tokens above are shared with the
+ * Applied only under `.cn[data-theme="dark"]`, never to `:root`. The tokens above are shared with the
  * report page, the demo host page and anything else that renders on light, and
  * the embedded overlay carries its own styles inside a shadow root. Redefining
  * the palette here means every existing `.cn-*` rule follows automatically and
@@ -518,9 +518,9 @@ button {
  * red failed. That distinction is the product, so it survives the repaint.
  * ------------------------------------------------------------------------- */
 
-body:has(.cn) { background: #0d0d0d; }
+body:has(.cn[data-theme="dark"]) { background: #0d0d0d; }
 
-.cn {
+.cn[data-theme="dark"] {
   color-scheme: dark;
 
   --bg: #1a1a1a;
@@ -550,39 +550,39 @@ body:has(.cn) { background: #0d0d0d; }
 }
 
 /* Rules that hardcoded a light-theme colour and cannot follow the tokens. */
-.cn .cn-nav button { color: #b4b4b4; }
-.cn .cn-nav button:hover:not(:disabled):not([aria-current="page"]) { background: #262626; color: var(--text); }
-.cn .cn-nav button[aria-current="page"] { background: #2f2f2f; color: #fff; }
-.cn .cn-nav button:disabled { color: #5a5a5a; }
-.cn .cn-main label { color: #c4c4c4; }
-.cn .cn-pill.on { color: var(--ok); }
-.cn .cn-note { color: #d8d8d8; }
-.cn .cn-warn { color: var(--warn); }
-.cn .cn-ok { color: var(--ok); }
-.cn .cn-error { color: var(--bad); }
-.cn .cn-checklist li.done .cn-check-num { background: var(--ok); color: #0d0d0d; }
-.cn .cn-src-status.trained { color: var(--ok); }
-.cn .cn-src-status.untrained { color: var(--warn); }
+.cn[data-theme="dark"] .cn-nav button { color: #b4b4b4; }
+.cn[data-theme="dark"] .cn-nav button:hover:not(:disabled):not([aria-current="page"]) { background: #262626; color: var(--text); }
+.cn[data-theme="dark"] .cn-nav button[aria-current="page"] { background: #2f2f2f; color: #fff; }
+.cn[data-theme="dark"] .cn-nav button:disabled { color: #5a5a5a; }
+.cn[data-theme="dark"] .cn-main label { color: #c4c4c4; }
+.cn[data-theme="dark"] .cn-pill.on { color: var(--ok); }
+.cn[data-theme="dark"] .cn-note { color: #d8d8d8; }
+.cn[data-theme="dark"] .cn-warn { color: var(--warn); }
+.cn[data-theme="dark"] .cn-ok { color: var(--ok); }
+.cn[data-theme="dark"] .cn-error { color: var(--bad); }
+.cn[data-theme="dark"] .cn-checklist li.done .cn-check-num { background: var(--ok); color: #0d0d0d; }
+.cn[data-theme="dark"] .cn-src-status.trained { color: var(--ok); }
+.cn[data-theme="dark"] .cn-src-status.untrained { color: var(--warn); }
 
 /* Primary reads as the one committing action on the screen: white on black. */
-.cn .cn-primary { background: #ececec; color: #0d0d0d; border-color: #ececec; }
-.cn .cn-primary:hover:not(:disabled) { background: #ffffff; border-color: #ffffff; }
-.cn .cn-ghost { background: transparent; color: var(--text); border-color: var(--line-2); }
-.cn .cn-ghost:hover:not(:disabled) { background: #262626; border-color: #4a4a4a; color: #fff; }
+.cn[data-theme="dark"] .cn-primary { background: #ececec; color: #0d0d0d; border-color: #ececec; }
+.cn[data-theme="dark"] .cn-primary:hover:not(:disabled) { background: #ffffff; border-color: #ffffff; }
+.cn[data-theme="dark"] .cn-ghost { background: transparent; color: var(--text); border-color: var(--line-2); }
+.cn[data-theme="dark"] .cn-ghost:hover:not(:disabled) { background: #262626; border-color: #4a4a4a; color: #fff; }
 
 /* Code blocks were dark on light; on dark they need to sit *below* the page. */
-.cn .cn-key, .cn .cn-snippet { background: #080808; color: #d4d4d4; border: 1px solid var(--line); }
-.cn .cn-drawer { background: #171717; box-shadow: -18px 0 50px rgba(0, 0, 0, .55); }
-.cn .cn-drawer-overlay { background: rgba(0, 0, 0, .6); }
-.cn .cn-sess-row:hover { background: #202020; }
-.cn .cn-src-card:hover:not(.cn-src-card-static) { background: #262626; border-color: #4a4a4a; color: var(--text); }
-.cn .cn-empty { border-color: var(--line-2); }
+.cn[data-theme="dark"] .cn-key, .cn .cn-snippet { background: #080808; color: #d4d4d4; border: 1px solid var(--line); }
+.cn[data-theme="dark"] .cn-drawer { background: #171717; box-shadow: -18px 0 50px rgba(0, 0, 0, .55); }
+.cn[data-theme="dark"] .cn-drawer-overlay { background: rgba(0, 0, 0, .6); }
+.cn[data-theme="dark"] .cn-sess-row:hover { background: #202020; }
+.cn[data-theme="dark"] .cn-src-card:hover:not(.cn-src-card-static) { background: #262626; border-color: #4a4a4a; color: var(--text); }
+.cn[data-theme="dark"] .cn-empty { border-color: var(--line-2); }
 
 /* Inputs: transparent-dark, so the focus ring is what draws the eye. */
-.cn .cn-main input, .cn .cn-main textarea, .cn .cn-main select,
-.cn .cn-switcher select, .cn .cn-newform input { background: #101010; border-color: var(--line-2); color: var(--text); }
-.cn .cn-main input::placeholder, .cn .cn-main textarea::placeholder, .cn .cn-src-search::placeholder { color: #6a6a6a; }
-.cn .cn-main input:focus, .cn .cn-main textarea:focus, .cn .cn-main select:focus { outline-color: #6e6e6e; border-color: #6e6e6e; }
+.cn[data-theme="dark"] .cn-main input, .cn .cn-main textarea, .cn .cn-main select,
+.cn[data-theme="dark"] .cn-switcher select, .cn .cn-newform input { background: #101010; border-color: var(--line-2); color: var(--text); }
+.cn[data-theme="dark"] .cn-main input::placeholder, .cn .cn-main textarea::placeholder, .cn .cn-src-search::placeholder { color: #6a6a6a; }
+.cn[data-theme="dark"] .cn-main input:focus, .cn .cn-main textarea:focus, .cn .cn-main select:focus { outline-color: #6e6e6e; border-color: #6e6e6e; }
 
 /* Session outcome pill — shares the timeline's tone vocabulary. */
 .cn-sess-pill { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
@@ -603,3 +603,11 @@ body:has(.cn) { background: #0d0d0d; }
 .cn-score { font: 500 11px/1.6 ui-monospace, monospace; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .cn-score.ok { background: var(--ok-soft); border: 1px solid var(--ok-line); color: var(--ok); }
 .cn-score.warn { background: var(--warn-soft); border: 1px solid var(--warn-line); color: var(--warn); }
+
+/* Theme toggle + the signed-in account, at the foot of the sidebar. */
+.cn-theme { display: flex; align-items: center; gap: 7px; padding: 6px 8px; margin-bottom: 4px; font: inherit; font-size: 12px; color: var(--dim); background: none; border: 1px solid transparent; border-radius: 7px; cursor: pointer; }
+.cn-theme:hover { border-color: var(--line-2); color: var(--text); }
+.cn-account { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.cn-account strong { display: block; font-size: 12.5px; }
+.cn-account .cn-muted { font-size: 11.5px; overflow-wrap: anywhere; }
+.cn-avatar { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--violet-soft); border: 1px solid var(--violet-line); color: var(--violet-deep); font-size: 12px; font-weight: 600; }
