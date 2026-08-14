@@ -318,6 +318,10 @@ export class MinuteOne {
             });
             return;
           }
+          // The overlay shows the user something they can act on, so the
+          // provider's own wording would otherwise be lost. Whoever installed
+          // the guide needs it verbatim to debug an integration.
+          console.error("[minute-one] voice connection failed:", err.message);
           this.patch({ connectionError: err.message });
         },
       },

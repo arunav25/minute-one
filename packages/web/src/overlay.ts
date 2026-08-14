@@ -247,11 +247,21 @@ export class ShadowOverlay {
       !view.running && !view.terminal
         ? `<button class="primary" data-action="start-real">Start voice guide</button>
            ${
+             /*
+              * The provider's own error text is not shown.
+              *
+              * It names the vendor and its API — "Deepgram error: Error parsing
+              * client message. Check the agent.think field against the API
+              * spec." — which tells the user nothing they can act on and leaks
+              * which shell we run on. It goes to the browser console for
+              * whoever installed the guide, and to the session event for the
+              * console; the user gets a sentence they can act on.
+              */
              view.connectionError
                ? `<div class="error" role="alert">
-                    <p><strong>Voice did not connect.</strong> ${esc(view.connectionError)}</p>
-                    <p class="muted">Demo mode uses a scripted mock. It is not real voice and stays labelled as such.</p>
-                    <button class="ghost" data-action="start-demo">Continue in demo mode</button>
+                    <p><strong>The voice guide couldn't start.</strong> Check your connection and try again.</p>
+                    <p class="muted">Or continue with a scripted preview — nobody is listening in that mode.</p>
+                    <button class="ghost" data-action="start-demo">Continue without voice</button>
                   </div>`
                : ""
            }`
@@ -259,8 +269,8 @@ export class ShadowOverlay {
 
     const micBlock = view.micBlocked
       ? `<div class="mic" role="alert">
-           <strong>Microphone blocked.</strong>
-           <p class="muted">The voice session is connected, but the browser refused capture. Allow the microphone for this site, then press End and start again.</p>
+           <strong>I can't hear you.</strong>
+           <p class="muted">Your browser is blocking the microphone for this site. Allow it, then press End and start again.</p>
          </div>`
       : "";
 
@@ -326,10 +336,18 @@ export class ShadowOverlay {
      * and read in the console. Offering it to the guided user sent them into a
      * different product's dashboard to look at telemetry about themselves.
      */
+    /*
+     * The engine's own reason string never reaches the user.
+     *
+     * "user ended before any step passed" is audit language: precise, useful in
+     * the console, and meaningless-to-alarming on someone's screen — it reads
+     * as a failure when the user simply closed the guide. The exact reason is
+     * still recorded on the session event, which is where it belongs.
+     */
     const terminalBlock = view.terminal
       ? `<div class="card ${view.terminal}" data-testid="terminal">
            <strong>${esc(TERMINAL_TITLE[view.terminal] ?? "Finished")}</strong>
-           ${view.terminalReason ? `<p class="muted">${esc(view.terminalReason)}</p>` : ""}
+           <p class="muted">${esc(TERMINAL_NOTE[view.terminal] ?? "")}</p>
          </div>`
       : "";
 
@@ -400,7 +418,20 @@ function emphasise(text: string, label: string | null): string {
  */
 const TERMINAL_TITLE: Record<string, string> = {
   completed: "All done",
-  partial: "Stopped part-way",
+  partial: "Stopped here",
   failed: "We couldn't finish this",
   deadline: "Out of time",
+};
+
+/**
+ * The sub-line under each outcome. Written for someone who was using the
+ * product, not for whoever authored the journey — "partial" most often means
+ * the person simply closed the guide, which is not a failure and should not
+ * read like one.
+ */
+const TERMINAL_NOTE: Record<string, string> = {
+  completed: "You're set up. You can close this.",
+  partial: "You can pick this up again whenever you like.",
+  failed: "Nothing was changed in your account. Try again, or ask for a person.",
+  deadline: "The guide timed out. Start again when you have a moment.",
 };

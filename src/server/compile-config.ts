@@ -47,6 +47,18 @@ function buildPersona(
       ? "When the user asks a product or how-to question, call the search_knowledge tool with their question and answer only from the passages it returns. If it returns nothing useful, say you do not know and offer to connect the user to a person. Never invent a feature, a price, a button, or an account state."
       : "Answer only from the knowledge below. If the answer is not there, say you do not know and offer to connect the user to a person. Never invent a feature, a price, a button, or an account state.",
     "",
+    /*
+     * Where the user already is.
+     *
+     * This guide runs inside the product, on the screen of somebody who is
+     * signed in. Help-center articles are written for a reader who is not:
+     * they open with creating an account, logging in, or "head over to the
+     * dashboard". Read back verbatim, that tells a signed-in user to log in
+     * again — which is how the guide first sounded on the Get Started page.
+     */
+    `The user is already signed in to ${product.name} and is looking at it right now — you are running inside the product, on their screen.`,
+    "Retrieved articles are written for someone who has not signed in yet. Skip any step about creating an account, logging in, or opening the app, and start from the first step they have not already done. Never tell them to log in or to open the dashboard.",
+    "",
     "Keep spoken answers under 35 words. One question per turn.",
   ];
 
