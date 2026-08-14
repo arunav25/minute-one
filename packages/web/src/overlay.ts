@@ -94,7 +94,7 @@ const LOGO = `
 const STYLE = `
 :host { all: initial; }
 .wrap {
-  position: fixed; top: 16px; right: 16px; width: 330px;
+  position: fixed; bottom: 16px; right: 16px; width: 330px;
   max-height: calc(100vh - 32px); overflow-y: auto;
   background: #fff; color: #16141f; border: 1px solid #e6e3f2;
   border-radius: 16px; padding: 14px; z-index: 2147483000;
@@ -113,8 +113,16 @@ const STYLE = `
  * must not look switched off, or the user talks to something they think is
  * gone — the rings are the only thing telling them the microphone is live.
  */
+.wrap { animation: mo-grow .18s cubic-bezier(.2,.8,.3,1); transform-origin: bottom right; }
+@keyframes mo-grow {
+  from { opacity:0; transform:scale(.92) translateY(6px); }
+  to   { opacity:1; transform:scale(1)   translateY(0);   }
+}
 .wrap.min { width:auto; max-height:none; padding:0; overflow:visible;
-  background:transparent; border:0; box-shadow:none; }
+  background:transparent; border:0; box-shadow:none; animation:none; }
+.orb { transition: transform .16s ease, box-shadow .16s ease; }
+.orb:hover { transform: scale(1.06); box-shadow:0 14px 34px rgba(22,20,31,.28); }
+.orb:active { transform: scale(.97); }
 .orb { position:relative; width:56px; height:56px; padding:0; border:0; border-radius:50%;
   background:#fff; box-shadow:0 10px 30px rgba(22,20,31,.22); cursor:pointer;
   display:grid; place-items:center; }
@@ -190,9 +198,19 @@ export class ShadowOverlay {
   private container: HTMLDivElement;
   private live: HTMLDivElement;
   private transcriptOpen = false;
-  private minimised = false;
-  /** Set once the panel has been dragged; until then it stays pinned to top-right. */
+  /*
+   * Starts collapsed.
+   *
+   * The guide opens on somebody else's screen, uninvited. A 330px panel over
+   * their header is an interruption; an orb is an offer. It also gives the
+   * running session a permanent, unobtrusive home — the pulse is what says a
+   * call is in progress once the panel is out of the way.
+   */
+  private minimised = true;
+  /** Set once the panel has been dragged; until then it stays pinned bottom-right. */
   private pos: { x: number; y: number } | null = null;
+  /** True when the last pointer sequence travelled far enough to be a drag. */
+  private draggedFar = false;
   private view: OverlayView | null = null;
 
   constructor(private readonly handlers: OverlayHandlers, mount?: HTMLElement) {
@@ -222,10 +240,13 @@ export class ShadowOverlay {
     this.installDragging();
 
     this.container.addEventListener("click", (event) => {
-      const action = (event.target as HTMLElement)?.getAttribute?.(
-        "data-action"
-      );
+      // `closest`, not the target itself: a click on the orb lands on the
+      // inlined <svg> or one of the rings, and neither carries the attribute.
+      const action = (event.target as HTMLElement)?.closest?.("[data-action]")
+        ?.getAttribute("data-action");
       if (!action) return;
+      // A drag that ends over the control is not a press of it.
+      if (this.draggedFar) return;
       switch (action) {
         case "start-real":
           return this.handlers.onStartReal();
@@ -275,13 +296,21 @@ export class ShadowOverlay {
     let originX = 0;
     let originY = 0;
     let dragging = false;
+    let captured = false;
 
     const head = () => this.root.querySelector<HTMLElement>(".head");
 
     this.container.addEventListener("pointerdown", (e) => {
       const target = e.target as HTMLElement;
-      // Buttons inside the header keep their own behaviour.
-      if (!target.closest?.(".head") || target.closest?.("button")) return;
+      const onOrb = Boolean(target.closest?.(".orb"));
+      // The header drags the panel; the orb drags itself. Buttons inside the
+      // header keep their own behaviour — but the orb *is* a button, so it is
+      // allowed through and a press is told from a drag by distance below.
+      if (!onOrb && (!target.closest?.(".head") || target.closest?.("button"))) {
+        return;
+      }
+      this.draggedFar = false;
+      captured = false;
       const rect = this.container.getBoundingClientRect();
       originX = rect.left;
       originY = rect.top;
@@ -289,20 +318,41 @@ export class ShadowOverlay {
       startY = e.clientY;
       dragging = true;
       head()?.classList.add("dragging");
-      this.container.setPointerCapture(e.pointerId);
-      e.preventDefault();
+      /*
+       * Capture is taken on the first real movement, not here.
+       *
+       * Capturing on pointerdown retargets the click that follows to the
+       * capturing element, so a plain press on the orb arrived with the panel
+       * as its target and no action attached — the orb simply would not open.
+       *
+       * Nor is preventDefault called here: on pointerdown it suppresses the
+       * compatibility mouse events, and the click along with them. Text
+       * selection is already handled by user-select in the stylesheet.
+       */
     });
 
     this.container.addEventListener("pointermove", (e) => {
       if (!dragging) return;
-      this.place(originX + (e.clientX - startX), originY + (e.clientY - startY));
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      // A few pixels of travel is a press with a shaky hand, not a drag.
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) this.draggedFar = true;
+      if (this.draggedFar && !captured) {
+        this.container.setPointerCapture(e.pointerId);
+        captured = true;
+      }
+      if (!this.draggedFar) return;
+      this.place(originX + dx, originY + dy);
     });
 
     const stop = (e: PointerEvent) => {
       if (!dragging) return;
       dragging = false;
       head()?.classList.remove("dragging");
-      this.container.releasePointerCapture?.(e.pointerId);
+      if (captured) {
+        this.container.releasePointerCapture?.(e.pointerId);
+        captured = false;
+      }
       if (this.pos) this.place(this.pos.x, this.pos.y);
     };
     this.container.addEventListener("pointerup", stop);
@@ -325,8 +375,10 @@ export class ShadowOverlay {
     this.pos = clamped;
     this.container.style.left = `${clamped.x}px`;
     this.container.style.top = `${clamped.y}px`;
-    // `right` is what pins it by default; it has to go or left is ignored.
+    // `right`/`bottom` are what pin it by default; both have to go or the
+    // left/top just set are ignored.
     this.container.style.right = "auto";
+    this.container.style.bottom = "auto";
   }
 
   render(view: OverlayView) {
