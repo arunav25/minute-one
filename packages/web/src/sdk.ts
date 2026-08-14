@@ -70,6 +70,23 @@ export type MinuteOneStatus = {
   connectionError: string | null;
 };
 
+/**
+ * What the guide says when the journey stops, per outcome.
+ *
+ * Spoken, so it is written to be heard: no status words, and each one ends by
+ * making clear the line is still open and the next move is theirs.
+ */
+const CLOSING_LINE: Record<string, string> = {
+  completed:
+    "That's it — you're all set. Anything else you'd like to know, or press End when you're done.",
+  partial:
+    "We got part of the way. Ask me anything about the rest, or press End when you're done.",
+  failed:
+    "I couldn't finish that one, and nothing was changed. Ask me anything, or press End when you're done.",
+  deadline:
+    "We've run out of time on this. Ask me anything, or press End when you're done.",
+};
+
 const DEFAULTS = {
   eventsEndpoint: "/api/minute-one/events",
   reportUrl: "/report",
@@ -576,28 +593,63 @@ export class MinuteOne {
     const c = this.controller;
     if (!c) return;
     await c.endByUser();
-    await this.finish();
+    await this.finish(true);
   }
 
   private finished = false;
 
-  private async finish() {
+  /**
+   * Reaching the last step ends the *journey*, not the conversation.
+   *
+   * This used to disconnect the moment a terminal state arrived, so the guide
+   * stopped mid-breath and the line went dead — the person was left looking at
+   * a finished checklist with no idea whether it had worked, and no way to ask.
+   * Now the guide says so out loud and stays connected: they can ask what the
+   * number costs, or what to do next, and hang up when *they* are done.
+   *
+   * `endedByUser` is the one path that closes the socket, because that is the
+   * one place someone has actually asked to leave.
+   */
+  private async finish(endedByUser = false) {
     const c = this.controller!;
     if (this.finished) return;
     this.finished = true;
+    // Stops the step loop from instructing again; the voice stays live.
     this.stopped = true;
     this.spotlight?.clear();
-    await this.adapter?.disconnect(`session ${c.current.state}`);
+
+    const closing = endedByUser
+      ? "Okay, ending here. You can start me again whenever you like."
+      : (CLOSING_LINE[c.current.state] ??
+        "That's as far as I can take you. Ask me anything else, or press End when you're done.");
+
+    // Speak before anything closes, so the last thing they hear is a sentence
+    // and not silence. A provider that has already dropped must not turn a
+    // finished journey into an error.
+    try {
+      await this.adapter?.say(closing);
+    } catch {
+      /* the line is already gone; the panel still reports the outcome */
+    }
+
+    if (endedByUser) {
+      await this.adapter?.disconnect(`session ${c.current.state}`);
+    }
     await this.publish();
+
     this.patch({
-      running: false,
+      // Still running when the journey ends on its own: the microphone is open
+      // and End is still the user's to press.
+      running: !endedByUser,
       offeringHandoff: false,
       terminal: c.current.state,
       terminalReason: c.current.terminalReason,
+      instruction: "",
+      missing: [],
       // Engine state names are audit vocabulary; the overlay titles the
       // outcome in plain language instead.
       status: "",
-      stage: c.current.state === "completed" ? "Complete" : null,
+      stage: endedByUser ? null : "Listening",
       targetNote: null,
       proof: this.adapter?.proof ?? null,
     });
