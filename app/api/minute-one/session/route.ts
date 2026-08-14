@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getProductByKey } from "../../../../src/server/product-store";
+import { originAllowed, parseOrigins } from "../../../../src/server/origins";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,7 +36,7 @@ async function authorise(
   const product = await getProductByKey(key);
   if (!product) return { ok: false, reason: "unknown product key" };
   if (product.allowedOrigins.length > 0) {
-    return product.allowedOrigins.includes(origin)
+    return originAllowed(origin, product.allowedOrigins)
       ? { ok: true }
       : { ok: false, reason: `origin ${origin} is not allowed for this product` };
   }
@@ -77,14 +78,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const configuredOrigins = process.env.DEEPGRAM_ALLOWED_ORIGINS?.split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const configuredOrigins = parseOrigins(process.env.DEEPGRAM_ALLOWED_ORIGINS);
   if (
     origin &&
-    configuredOrigins &&
     configuredOrigins.length > 0 &&
-    !configuredOrigins.includes(origin)
+    !originAllowed(origin, configuredOrigins)
   ) {
     return NextResponse.json(
       {

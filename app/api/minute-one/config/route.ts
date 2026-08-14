@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getProductByKey } from "../../../../src/server/product-store";
 import { compileProduct } from "../../../../src/server/compile-config";
+import { originAllowed } from "../../../../src/server/origins";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
 
   const origin = req.headers.get("origin");
   if (product.allowedOrigins.length > 0 && origin) {
-    if (!product.allowedOrigins.includes(origin)) {
+    if (!originAllowed(origin, product.allowedOrigins)) {
       return NextResponse.json(
         { error: `origin ${origin} is not allowed for this product` },
         { status: 403 }
