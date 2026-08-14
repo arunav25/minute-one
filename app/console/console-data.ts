@@ -44,6 +44,7 @@ export type JourneyStep = {
   objective: string;
   instruction: string;
   targetName?: string;
+  targetSelector?: string;
   successText?: string;
   successRoute?: string;
 };

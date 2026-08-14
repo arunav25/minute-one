@@ -36,6 +36,16 @@ export type JourneyStepDraft = {
   instruction: string;
   /** Accessible name of the control to point at. Optional. */
   targetName?: string;
+  /**
+   * CSS selector for the control, when it has no accessible name to match on.
+   *
+   * Real apps are full of icon-only buttons — the message action on a contact
+   * row is one — and without this the guide can talk about them but cannot ring
+   * them, which is most of the value. Brittle by nature, so it is the fallback:
+   * `targetName` is tried first and a selector only used when that finds
+   * nothing.
+   */
+  targetSelector?: string;
   /** Text that must be visible for the step to count as proven. */
   successText?: string;
   /** Route glob that must match, e.g. "/settings*". Optional. */

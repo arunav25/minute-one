@@ -115,9 +115,18 @@ function compileStep(draft: Product["steps"][number], index: number): FlowStep {
   return {
     id: draft.id || `step-${index + 1}`,
     objective: draft.objective || `Step ${index + 1}`,
-    target: draft.targetName
-      ? { label: draft.targetName, role: "button", name: draft.targetName }
-      : undefined,
+    target:
+      draft.targetName || draft.targetSelector
+        ? {
+            label: draft.targetName || draft.objective,
+            // Only claim a role when matching by name; a selector may point at
+            // anything, and a wrong role stops it resolving at all.
+            ...(draft.targetName
+              ? { role: "button", name: draft.targetName }
+              : {}),
+            ...(draft.targetSelector ? { selector: draft.targetSelector } : {}),
+          }
+        : undefined,
     instruction: {
       primary: draft.instruction || `Continue to ${draft.objective}.`,
       recovery: [
