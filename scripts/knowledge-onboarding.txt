@@ -37,3 +37,11 @@
 # Get Started task 3 — "Add team members"
 2162514     # How to add a Team member
 2376483     # Manage access level of your team member
+
+# Messaging — the "Send your first SMS" task, and texting a contact
+1392056     # How to send bulk SMS to contacts through JustCall
+3934230     # How to send bulk SMS to contacts (v2)
+
+# Contacts — search, import, manage
+6159165     # Add contact to DNM for a specific JustCall number
+8671142     # Adding contacts in a Sales Dialer campaign
