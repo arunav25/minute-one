@@ -13,6 +13,13 @@ export type OverlayView = {
   running: boolean;
   status: string;
   instruction: string;
+  /*
+   * Still reported, deliberately not rendered.
+   *
+   * "Step 1 of 6" is the journey author's count, not the user's business: it
+   * says nothing they can act on, and a long number early on reads as a chore.
+   * The console keeps it, where progress per step is exactly the point.
+   */
   stepIndex: number;
   stepCount: number;
   attempt: number;
@@ -100,7 +107,6 @@ const STYLE = `
 .icon-btn { margin-left:auto; flex:none; width:24px; height:24px; display:grid; place-items:center;
   border:0; border-radius:7px; background:none; color:#9a97ac; font-size:15px; line-height:1; cursor:pointer; }
 .icon-btn:hover { background:#f4f2fc; color:#16141f; }
-.head .step + .icon-btn { margin-left:6px; }
 
 /* ---- minimised ----
  * Collapses to an orb that keeps signalling. A guide that is still listening
@@ -133,7 +139,6 @@ const STYLE = `
 .dot.on { background:#7c5cff; box-shadow:0 0 0 3px rgba(124,92,255,.18); }
 .title { font-weight:700; letter-spacing:-.01em; }
 .brand { color:#9a97ac; font-size:11px; }
-.step { margin-left:auto; color:#7c5cff; font-family:ui-monospace,Menlo,monospace; font-size:11px; font-weight:600; }
 .stage { display:inline-block; margin:0 0 8px; padding:3px 9px; border-radius:999px;
   border:1px solid #e6e3f2; background:#f4f2fc; color:#6b6880;
   font-family:ui-monospace,Menlo,monospace; font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; }
@@ -521,11 +526,6 @@ export class ShadowOverlay {
         <span class="dot ${view.running ? "on" : ""}"></span>
         <span class="title">${view.running ? "Guide me" : "Minute One"}</span>
         ${view.running ? `<span class="brand">Minute One</span>` : ""}
-        <span class="step">${
-          view.running && view.stepCount
-            ? `Step ${Math.min(view.stepIndex + 1, view.stepCount)} of ${view.stepCount}`
-            : ""
-        }</span>
         <button class="icon-btn" data-action="minimise" aria-label="Minimise the guide"
                 title="Minimise">&minus;</button>
       </div>
