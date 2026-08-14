@@ -69,14 +69,12 @@ export type OverlayHandlers = {
 const LOGO = `
 <svg class="logo" viewBox="0 0 64 64" width="24" height="24" aria-hidden="true">
   <defs><linearGradient id="mo-g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#9C7CFF"/><stop offset="1" stop-color="#5C34E0"/>
+    <stop offset="0" stop-color="#7A50F5"/><stop offset=".45" stop-color="#A487FF"/>
+    <stop offset="1" stop-color="#F5E6D3"/>
   </linearGradient></defs>
-  <rect width="64" height="64" rx="16" fill="url(#mo-g)"/>
-  <g transform="translate(32 32) scale(0.84) translate(-32 -32)" fill="none"
-     stroke="#fff" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M50.87 15.6 A25 25 0 1 1 40.55 8.51" stroke-width="4.2" opacity=".5"/>
-    <path d="M21.5 33 L29.5 41 L48.9 8.3" stroke-width="5.8"/>
-  </g>
+  <rect width="64" height="64" rx="17" fill="url(#mo-g)"/>
+  <path d="M20 41V29a6 6 0 0 1 12 0v12M32 29a6 6 0 0 1 12 0v12"
+        fill="none" stroke="#fff" stroke-width="5.8" stroke-linecap="round"/>
 </svg>`;
 
 /*
