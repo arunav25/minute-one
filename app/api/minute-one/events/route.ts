@@ -58,7 +58,7 @@ export async function POST(req: Request) {
     productKey?: unknown;
     identity?: unknown;
   };
-  const stored = appendEvents(
+  const stored = await appendEvents(
     valid,
     typeof productKey === "string" ? productKey : undefined,
     identity && typeof identity === "object"
@@ -71,11 +71,13 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   // `?key=` scopes the log to one product, which is what the console shows.
   const key = new URL(req.url).searchParams.get("key");
-  const events = key ? eventsForProduct(key) : allEvents();
+  const events = key ? await eventsForProduct(key) : await allEvents();
   return NextResponse.json(
     {
       events,
-      identities: identitiesFor([...new Set(events.map((e) => e.sessionId))]),
+      identities: await identitiesFor([
+        ...new Set(events.map((e) => e.sessionId)),
+      ]),
     },
     { headers: cors(req.headers.get("origin")) }
   );

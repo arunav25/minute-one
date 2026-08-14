@@ -189,12 +189,16 @@ export function useProductReport(productKey: string | null) {
   const [report, setReport] = useState<ReportData | null>(null);
   const [eventCount, setEventCount] = useState(0);
   const [identities, setIdentities] = useState<Record<string, SessionIdentity>>({});
+  // Kept alongside the report: the report aggregates, but Sessions has to show
+  // what actually happened in one run, which only the raw events carry.
+  const [events, setEvents] = useState<SessionEvent[]>([]);
 
   const load = useCallback(async () => {
     if (!productKey) {
       setReport(null);
       setEventCount(0);
       setIdentities({});
+      setEvents([]);
       return;
     }
     try {
@@ -208,6 +212,7 @@ export function useProductReport(productKey: string | null) {
       };
       setEventCount(data.events.length);
       setIdentities(data.identities ?? {});
+      setEvents(data.events);
       setReport(buildReport(data.events));
     } catch {
       // Leave the previous view in place; the panel states when it is empty.
@@ -222,7 +227,7 @@ export function useProductReport(productKey: string | null) {
     return () => window.clearInterval(timer);
   }, [load]);
 
-  return { report, eventCount, identities, reload: load };
+  return { report, eventCount, identities, events, reload: load };
 }
 
 /** Which setup steps are done, derived from the product itself. */

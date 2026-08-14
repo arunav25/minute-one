@@ -56,14 +56,16 @@ export function ConsoleView() {
     loaded,
     run,
   } = useProducts();
-  const { report, eventCount, identities } = useProductReport(selected?.key ?? null);
+  const { report, eventCount, identities, events } = useProductReport(
+    selected?.key ?? null
+  );
 
   const [section, setSection] = useState("overview");
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
 
   const panelProps = selected
-    ? { product: selected, report, eventCount, identities, busy, run }
+    ? { product: selected, report, eventCount, identities, events, busy, run }
     : null;
 
   return (

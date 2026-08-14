@@ -36,7 +36,7 @@ async function startGuide(page: Page) {
   await page.goto("/embed-test?voice=mock");
   await page.getByRole("button", { name: "Start voice guide" }).click();
   // The mock does not listen, so the goal is chosen through the overlay.
-  await page.getByRole("button", { name: "Use supported goal" }).click();
+  await page.getByRole("button", { name: "Start the walkthrough" }).click();
   await expect.poll(async () => (await status(page))?.running).toBe(true);
 }
 
@@ -61,7 +61,7 @@ test.describe("verified journey", () => {
     const s = await status(page);
     expect(s?.stepId).toBe("assign-team");
     expect(s?.terminal).toBeNull();
-    await expect(page.getByTestId("missing-evidence")).toBeVisible();
+    await expect(page.getByTestId("not-yet")).toBeVisible();
   });
 
   test("the correct action advances, and the journey completes", async ({ page }) => {

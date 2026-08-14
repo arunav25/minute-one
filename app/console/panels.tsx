@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ReportData } from "@minute-one/core";
+import type { ReportData, SessionEvent } from "@minute-one/core";
 import {
   api,
   setupState,
@@ -26,6 +26,8 @@ type PanelProps = {
   report: ReportData | null;
   eventCount: number;
   identities: Record<string, SessionIdentity>;
+  /** Raw events, so Sessions can show what happened rather than only totals. */
+  events: SessionEvent[];
   busy: boolean;
   run: (fn: () => Promise<unknown>) => Promise<boolean>;
 };
@@ -888,7 +890,70 @@ export function SettingsPanel({ product, busy, run }: PanelProps) {
 /* Sessions                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export function SessionsPanel({ report, eventCount, identities }: PanelProps) {
+/**
+ * What one event means, in the console's voice.
+ *
+ * The overlay deliberately hides the engine's vocabulary from the guided user;
+ * here it is the point. Whoever authored the journey needs to see the failed
+ * check and the rule that failed, because that is the thing they can fix.
+ */
+function describeEvent(e: SessionEvent): { label: string; detail: string; tone: string } {
+  const d = (e.detail ?? {}) as Record<string, unknown>;
+  switch (e.type) {
+    case "session_started":
+      return { label: "Session started", detail: "", tone: "" };
+    case "voice_provider":
+      return {
+        label: "Voice connected",
+        detail: `${d.provider ?? "—"} · ${d.model ?? "—"}${
+          d.isRealVoice === false ? " · demo mode, not real voice" : ""
+        }`,
+        tone: d.isRealVoice === false ? "warn" : "ok",
+      };
+    case "goal_selected":
+      return { label: "Goal chosen", detail: String(d.goal ?? ""), tone: "" };
+    case "step_instructed":
+      return {
+        label: `Instructed${e.stepId ? ` · ${e.stepId}` : ""}`,
+        detail: String(d.instruction ?? ""),
+        tone: "",
+      };
+    case "verification_checked":
+      return d.passed
+        ? { label: "Check passed", detail: String(e.stepId ?? ""), tone: "ok" }
+        : {
+            label: "Check failed",
+            detail: String(d.missing ?? "no evidence recorded"),
+            tone: "bad",
+          };
+    case "recovery_spoken":
+      return {
+        label: `Recovery${d.mode ? ` · ${d.mode}` : ""}`,
+        detail: String(d.text ?? ""),
+        tone: "warn",
+      };
+    case "stuck_signal":
+      return { label: "User said they were stuck", detail: String(e.reason ?? ""), tone: "warn" };
+    case "handoff_offered":
+      return { label: "Phone help offered", detail: String(e.reason ?? ""), tone: "warn" };
+    case "handoff_accepted":
+      return { label: "Phone help accepted", detail: "", tone: "warn" };
+    case "handoff_declined":
+      return { label: "Phone help declined", detail: "", tone: "" };
+    case "session_ended":
+      return {
+        label: `Session ${d.terminal ?? "ended"}`,
+        detail: d.voiceMinutes ? `${Number(d.voiceMinutes).toFixed(2)} voice minutes` : "",
+        tone: d.terminal === "completed" ? "ok" : "warn",
+      };
+    default:
+      return { label: e.type, detail: String(e.reason ?? ""), tone: "" };
+  }
+}
+
+export function SessionsPanel({ report, eventCount, identities, events }: PanelProps) {
+  const [open, setOpen] = useState<string | null>(null);
+
   if (eventCount === 0) {
     return (
       <>
@@ -905,38 +970,78 @@ export function SessionsPanel({ report, eventCount, identities }: PanelProps) {
     <>
       <PanelHead
         title="Sessions"
-        lede="Every run of the guide from this product's embed, with the voice provider it actually used."
+        lede="Every run of the guide from this product's embed. Open one to see what the guide said, what it checked, and where it failed — the detail the guided user never sees."
       />
-      <div className="cn-scroll">
-        <table className="cn-table">
-          <thead>
-            <tr>
-              <th>Session</th>
-              <th>User</th>
-              <th>Outcome</th>
-              <th>Reason</th>
-              <th>Voice</th>
-              <th>Real</th>
-              <th>Duration</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report?.sessions.map((s) => (
-              <tr key={s.sessionId}>
-                <td>
-                  <code>{s.sessionId}</code>
-                </td>
-                <td>{describeUser(identities[s.sessionId])}</td>
-                <td>{s.terminal ?? "in progress"}</td>
-                <td className="cn-muted">{s.reason ?? "—"}</td>
-                <td>{s.provider ?? "—"}</td>
-                <td>{s.isRealVoice === null ? "—" : s.isRealVoice ? "yes" : "no"}</td>
-                <td>{s.durationMs ? `${Math.round(s.durationMs / 1000)}s` : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <ul className="cn-sess" data-testid="session-list">
+        {report?.sessions.map((s) => {
+          const isOpen = open === s.sessionId;
+          const mine = events
+            .filter((e) => e.sessionId === s.sessionId)
+            .sort((a, b) => a.sequence - b.sequence);
+          return (
+            <li key={s.sessionId} className="cn-sess-item">
+              <button
+                className="cn-sess-row"
+                aria-expanded={isOpen}
+                onClick={() => setOpen(isOpen ? null : s.sessionId)}
+              >
+                <span className={`cn-src-status ${s.terminal === "completed" ? "trained" : "untrained"}`}>
+                  {s.terminal ?? "in progress"}
+                </span>
+                <span className="cn-sess-who">{describeUser(identities[s.sessionId])}</span>
+                <span className="cn-muted">
+                  {s.provider ?? "—"}
+                  {s.isRealVoice === false && " (demo)"}
+                  {s.durationMs ? ` · ${Math.round(s.durationMs / 1000)}s` : ""}
+                </span>
+                <span className="cn-sess-caret">{isOpen ? "▾" : "▸"}</span>
+              </button>
+
+              {isOpen && (
+                <div className="cn-sess-detail">
+                  <dl className="cn-sess-proof">
+                    <div>
+                      <dt>Provider session</dt>
+                      <dd>{s.providerSessionId ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>Model</dt>
+                      <dd>{s.model ?? "—"}</dd>
+                    </div>
+                    <div>
+                      <dt>Real voice</dt>
+                      <dd>{s.isRealVoice === null ? "—" : s.isRealVoice ? "yes" : "no"}</dd>
+                    </div>
+                    <div>
+                      <dt>Minute One session</dt>
+                      <dd>{s.sessionId}</dd>
+                    </div>
+                  </dl>
+
+                  <ol className="cn-timeline">
+                    {mine.map((e) => {
+                      const { label, detail, tone } = describeEvent(e);
+                      return (
+                        <li key={e.sequence} className={tone}>
+                          <span className="cn-timeline-time">
+                            {new Date(e.at).toLocaleTimeString(undefined, {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}
+                          </span>
+                          <span className="cn-timeline-label">{label}</span>
+                          {detail && <span className="cn-timeline-detail">{detail}</span>}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
       <a className="cn-ghost" href="/report">
         Open the full report →
       </a>

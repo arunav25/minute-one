@@ -109,16 +109,9 @@ const STYLE = `
 .target-note { margin:0 0 10px; color:#b26b00; font-size:12.5px; }
 .sr-live { position:absolute; width:1px; height:1px; overflow:hidden;
   clip:rect(0 0 0 0); clip-path:inset(50%); white-space:nowrap; }
-.proof { border:1px solid #e6e3f2; border-radius:12px; padding:10px; margin-bottom:12px; background:#fbfaff; }
-.proof.real { border-color:#b6e7cb; background:#edfbf2; }
-.proof.mock { border-color:#f5c2c4; background:#fef0f0; }
-.badge { font-family:ui-monospace,Menlo,monospace; font-size:11px; letter-spacing:.06em; text-transform:uppercase; font-weight:600; }
-.proof.real .badge { color:#0f7a43; }
-.proof.mock .badge { color:#c0272d; }
-.grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 10px; margin-top:10px; }
-.grid dt { color:#9a97ac; font-size:10px; text-transform:uppercase; letter-spacing:.07em; margin:0; }
-.grid dd { margin:0; font-family:ui-monospace,Menlo,monospace; font-size:11.5px; overflow:hidden; text-overflow:ellipsis; }
-.fallback { margin:8px 0 0; color:#c0272d; font-size:11.5px; }
+.demo-note { border:1px solid #f0d9a8; background:#fdf6e7; color:#6b4a06; border-radius:10px; padding:9px 11px; margin-bottom:12px; font-size:12.5px; }
+.connecting { margin:0 0 12px; color:#6f6b81; font-size:13px; }
+.not-yet { margin:8px 0 0; color:#6f6b81; font-size:13px; }
 button { font:inherit; cursor:pointer; }
 .primary { width:100%; background:#7c5cff; color:#fff; border:0; border-radius:10px; padding:12px; font-weight:650; }
 .primary:hover { background:#5c34e0; }
@@ -222,33 +215,33 @@ export class ShadowOverlay {
     this.view = view;
     const real = view.proof?.isRealVoice ?? false;
 
-    const proofBlock = `
-      <div class="proof ${real ? "real" : "mock"}" data-testid="provider-proof">
-        <span class="badge">${
-          view.proof
-            ? real
-              ? `Voice: ${providerLabel(view.proof.provider)} ${cap(view.proof.connection)}`
-              : "Voice: DEMO MODE — not real voice"
-            : "Voice: not connected"
-        }</span>
-        ${
-          view.proof
-            ? `<dl class="grid">
-                ${cell("Provider", view.proof.provider)}
-                ${cell("Model", view.proof.model)}
-                ${cell("Session", view.proof.sessionId ?? "—")}
-                ${cell("State", view.proof.connection)}
-                ${cell("Voice used", `${view.proof.minutes.toFixed(2)} min`)}
-                ${cell("Disconnect", view.proof.disconnectReason ?? "—")}
-              </dl>`
-            : ""
-        }
-        ${
-          view.proof?.fallbackReason
-            ? `<p class="fallback">Fallback reason: ${esc(view.proof.fallbackReason)}</p>`
-            : ""
-        }
-      </div>`;
+    /*
+     * What the person being guided sees about voice — and no more.
+     *
+     * This panel sits inside someone else's product, in front of their
+     * customer. Which speech vendor we called, the model string, the provider
+     * session id and the minutes billed are our operational concerns, not
+     * theirs: they belong in the Minute One console, where the team that
+     * installed the guide can see them. Showing them here reads as debug
+     * output leaking into a live product.
+     *
+     * Two things do survive, because they are the user's business rather than
+     * ours: that the microphone is open, and that a demo is not the real
+     * thing. Dropping the second would make the panel quietly dishonest.
+     */
+    const connecting =
+      view.proof?.connection === "connecting" ||
+      view.proof?.connection === "reconnecting";
+
+    const voiceBlock = !view.proof
+      ? ""
+      : !real
+        ? `<div class="demo-note" data-testid="demo-note">
+             <strong>Demo mode.</strong> A scripted preview — nobody is listening.
+           </div>`
+        : connecting
+          ? `<p class="connecting" data-testid="voice-status">Connecting…</p>`
+          : "";
 
     const startBlock =
       !view.running && !view.terminal
@@ -277,17 +270,29 @@ export class ShadowOverlay {
          ${view.targetNote ? `<p class="target-note" data-testid="target-note">${esc(view.targetNote)}</p>` : ""}
          ${view.instruction ? `<p class="instruction" data-testid="instruction">${emphasise(view.instruction, view.targetLabel)}</p>` : ""}
          ${
+           /*
+            * A failed check used to print the verifier's own evidence rules
+            * ("visible_text: will be shared with…"), which is the language of
+            * the journey author, not of the person stuck on the screen. The
+            * spoken recovery already tells them what to try; here we only say,
+            * plainly, that it is not confirmed yet. The rules themselves stay
+            * in the console, where whoever authored the step can act on them.
+            */
            view.missing.length
-             ? `<div class="missing" data-testid="missing-evidence">
-                  <span class="label">Check failed — missing</span>
-                  <ul>${view.missing.slice(0, 3).map((m) => `<li>${esc(m)}</li>`).join("")}</ul>
-                </div>`
+             ? `<p class="not-yet" data-testid="not-yet">Not quite yet — I can't see that on the page.</p>`
              : ""
          }
-         ${view.attempt > 0 ? `<p class="attempt">Attempt ${view.attempt + 1}</p>` : ""}
          <div class="actions">
-           <button class="ghost" data-action="goal">Use supported goal</button>
-           <button class="ghost" data-action="transcript">Transcript</button>
+           <!--
+             Kept, renamed. It locks onto the journey this product has authored,
+             which is what someone reaches for when the guide has not understood
+             them — and the only way to pick a goal when nothing is listening,
+             as in demo mode. "Use supported goal" was our word for it.
+           -->
+           <button class="ghost" data-action="goal">Start the walkthrough</button>
+           <button class="ghost" data-action="transcript">${
+             this.transcriptOpen ? "Hide transcript" : "Transcript"
+           }</button>
            <button class="ghost" data-action="end">End</button>
          </div>`
       : "";
@@ -313,11 +318,18 @@ export class ShadowOverlay {
          </div>`
       : "";
 
+    /*
+     * No link to the session report.
+     *
+     * The report is Minute One's own instrumentation — step timings, failed
+     * checks, provider minutes — written for the team that installed the guide
+     * and read in the console. Offering it to the guided user sent them into a
+     * different product's dashboard to look at telemetry about themselves.
+     */
     const terminalBlock = view.terminal
       ? `<div class="card ${view.terminal}" data-testid="terminal">
-           <strong>Session ${esc(view.terminal)}</strong>
-           <p class="muted">${esc(view.terminalReason ?? "")}</p>
-           <a href="${esc(view.reportUrl)}">Open the session report →</a>
+           <strong>${esc(TERMINAL_TITLE[view.terminal] ?? "Finished")}</strong>
+           ${view.terminalReason ? `<p class="muted">${esc(view.terminalReason)}</p>` : ""}
          </div>`
       : "";
 
@@ -351,7 +363,7 @@ export class ShadowOverlay {
             : ""
         }</span>
       </div>
-      ${proofBlock}${micBlock}${startBlock}${runningBlock}${handoffBlock}${terminalBlock}${transcriptBlock}`;
+      ${voiceBlock}${micBlock}${startBlock}${runningBlock}${handoffBlock}${terminalBlock}${transcriptBlock}`;
 
     // Announce stage changes without re-announcing every repaint.
     const announcement = view.stage ?? view.terminal ?? "";
@@ -379,14 +391,16 @@ function emphasise(text: string, label: string | null): string {
   );
 }
 
-const cell = (label: string, value: string) =>
-  `<div><dt>${esc(label)}</dt><dd title="${esc(value)}">${esc(value)}</dd></div>`;
-
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-const providerLabel = (provider: string) =>
-  provider === "deepgram"
-    ? "Deepgram"
-    : provider === "pyai"
-      ? "PyAI"
-      : cap(provider);
+/**
+ * How a finished session is announced to the person who was guided.
+ *
+ * The engine's own vocabulary — completed, partial, failed, deadline — is a
+ * status the console reports on. Said to a user mid-product it reads like an
+ * error code, so each maps to plain language here.
+ */
+const TERMINAL_TITLE: Record<string, string> = {
+  completed: "All done",
+  partial: "Stopped part-way",
+  failed: "We couldn't finish this",
+  deadline: "Out of time",
+};
