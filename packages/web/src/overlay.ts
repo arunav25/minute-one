@@ -94,7 +94,40 @@ const STYLE = `
   font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
   box-shadow: 0 18px 50px rgba(22,20,31,.16);
 }
-.head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+/* The header doubles as the drag handle, so it says so on hover. */
+.head { display:flex; align-items:center; gap:8px; margin-bottom:12px; cursor:grab; user-select:none; touch-action:none; }
+.head.dragging { cursor:grabbing; }
+.icon-btn { margin-left:auto; flex:none; width:24px; height:24px; display:grid; place-items:center;
+  border:0; border-radius:7px; background:none; color:#9a97ac; font-size:15px; line-height:1; cursor:pointer; }
+.icon-btn:hover { background:#f4f2fc; color:#16141f; }
+.head .step + .icon-btn { margin-left:6px; }
+
+/* ---- minimised ----
+ * Collapses to an orb that keeps signalling. A guide that is still listening
+ * must not look switched off, or the user talks to something they think is
+ * gone — the rings are the only thing telling them the microphone is live.
+ */
+.wrap.min { width:auto; max-height:none; padding:0; overflow:visible;
+  background:transparent; border:0; box-shadow:none; }
+.orb { position:relative; width:56px; height:56px; padding:0; border:0; border-radius:50%;
+  background:#fff; box-shadow:0 10px 30px rgba(22,20,31,.22); cursor:pointer;
+  display:grid; place-items:center; }
+.orb .logo { width:30px; height:30px; }
+.orb .ring { position:absolute; inset:-2px; border-radius:50%; border:2px solid #7c5cff;
+  opacity:0; pointer-events:none; }
+.orb.live .ring { animation: mo-pulse 2.4s cubic-bezier(.2,.6,.3,1) infinite; }
+.orb.live .ring:nth-of-type(2) { animation-delay:.8s; }
+.orb.live .ring:nth-of-type(3) { animation-delay:1.6s; }
+/* Speaking is faster and reaches further — the difference between the agent
+   talking and waiting for you is legible from across the desk. */
+.orb.speaking .ring { animation-duration:1.2s; border-color:#5c34e0; }
+@keyframes mo-pulse {
+  0%   { transform:scale(1);    opacity:.5; }
+  100% { transform:scale(2.05); opacity:0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .orb.live .ring { animation:none; opacity:.35; transform:scale(1.25); }
+}
 .logo { display:block; flex:none; border-radius:7px; }
 .dot { width:8px; height:8px; border-radius:50%; background:#c9c5d8; flex:none; }
 .dot.on { background:#7c5cff; box-shadow:0 0 0 3px rgba(124,92,255,.18); }
@@ -152,6 +185,9 @@ export class ShadowOverlay {
   private container: HTMLDivElement;
   private live: HTMLDivElement;
   private transcriptOpen = false;
+  private minimised = false;
+  /** Set once the panel has been dragged; until then it stays pinned to top-right. */
+  private pos: { x: number; y: number } | null = null;
   private view: OverlayView | null = null;
 
   constructor(private readonly handlers: OverlayHandlers, mount?: HTMLElement) {
@@ -178,6 +214,8 @@ export class ShadowOverlay {
     this.live.setAttribute("role", "status");
     this.root.append(style, this.container, this.live);
 
+    this.installDragging();
+
     this.container.addEventListener("click", (event) => {
       const action = (event.target as HTMLElement)?.getAttribute?.(
         "data-action"
@@ -196,6 +234,11 @@ export class ShadowOverlay {
           return this.handlers.onDeclineHandoff();
         case "end":
           return this.handlers.onEnd();
+        case "minimise":
+        case "expand":
+          this.minimised = action === "minimise";
+          if (this.view) this.render(this.view);
+          return;
         case "transcript":
           this.transcriptOpen = !this.transcriptOpen;
           if (this.view) this.render(this.view);
@@ -209,8 +252,113 @@ export class ShadowOverlay {
     return this.root;
   }
 
+  /**
+   * Drag by the header, anywhere in the window.
+   *
+   * The panel is pinned top-right, which is exactly where a lot of products put
+   * their own controls — so it has to be movable, or it covers the thing the
+   * guide is telling you to click. Pointer events (not mouse) so it works with
+   * a trackpad, a touchscreen and a pen; capture so a fast drag that outruns
+   * the cursor does not drop the panel.
+   *
+   * Position is clamped on release and on resize: a panel dragged off-screen,
+   * or left off-screen by a window resize, cannot be dragged back.
+   */
+  private installDragging() {
+    let startX = 0;
+    let startY = 0;
+    let originX = 0;
+    let originY = 0;
+    let dragging = false;
+
+    const head = () => this.root.querySelector<HTMLElement>(".head");
+
+    this.container.addEventListener("pointerdown", (e) => {
+      const target = e.target as HTMLElement;
+      // Buttons inside the header keep their own behaviour.
+      if (!target.closest?.(".head") || target.closest?.("button")) return;
+      const rect = this.container.getBoundingClientRect();
+      originX = rect.left;
+      originY = rect.top;
+      startX = e.clientX;
+      startY = e.clientY;
+      dragging = true;
+      head()?.classList.add("dragging");
+      this.container.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+
+    this.container.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      this.place(originX + (e.clientX - startX), originY + (e.clientY - startY));
+    });
+
+    const stop = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      head()?.classList.remove("dragging");
+      this.container.releasePointerCapture?.(e.pointerId);
+      if (this.pos) this.place(this.pos.x, this.pos.y);
+    };
+    this.container.addEventListener("pointerup", stop);
+    this.container.addEventListener("pointercancel", stop);
+
+    window.addEventListener("resize", () => {
+      if (this.pos) this.place(this.pos.x, this.pos.y);
+    });
+  }
+
+  /** Move the panel, clamped so it can always be grabbed again. */
+  private place(x: number, y: number) {
+    const rect = this.container.getBoundingClientRect();
+    const maxX = Math.max(0, window.innerWidth - rect.width - 8);
+    const maxY = Math.max(0, window.innerHeight - rect.height - 8);
+    const clamped = {
+      x: Math.min(Math.max(8, x), maxX),
+      y: Math.min(Math.max(8, y), maxY),
+    };
+    this.pos = clamped;
+    this.container.style.left = `${clamped.x}px`;
+    this.container.style.top = `${clamped.y}px`;
+    // `right` is what pins it by default; it has to go or left is ignored.
+    this.container.style.right = "auto";
+  }
+
   render(view: OverlayView) {
     this.view = view;
+
+    if (this.minimised) {
+      const speaking = view.stage === "Speaking";
+      /*
+       * "Live" means the microphone is open, which is the provider connection —
+       * not `running`, which only turns true once the journey's controller has
+       * started. Keyed on `running`, the orb sat perfectly still while the agent
+       * was mid-sentence: the one moment it most needs to look alive.
+       */
+      const connection = view.proof?.connection;
+      const live =
+        view.running || connection === "connected" || connection === "reconnecting";
+      this.container.className = "wrap min";
+      this.container.innerHTML = `
+        <button class="orb ${live ? "live" : ""} ${speaking ? "speaking" : ""}"
+                data-action="expand" aria-label="${
+                  live
+                    ? `Minute One is ${speaking ? "speaking" : "listening"} — open the guide`
+                    : "Open the Minute One guide"
+                }" title="${live ? (speaking ? "Speaking" : "Listening") : "Open"}">
+          <span class="ring"></span><span class="ring"></span><span class="ring"></span>
+          ${LOGO}
+        </button>`;
+      const announcement = view.stage ?? view.terminal ?? "";
+      if (announcement && this.live.textContent !== announcement) {
+        this.live.textContent = announcement;
+      }
+      // Clamp: the orb is much smaller than the panel it replaced.
+      if (this.pos) this.place(this.pos.x, this.pos.y);
+      return;
+    }
+    this.container.className = "wrap";
+
     const real = view.proof?.isRealVoice ?? false;
 
     /*
@@ -378,8 +526,20 @@ export class ShadowOverlay {
             ? `Step ${Math.min(view.stepIndex + 1, view.stepCount)} of ${view.stepCount}`
             : ""
         }</span>
+        <button class="icon-btn" data-action="minimise" aria-label="Minimise the guide"
+                title="Minimise">&minus;</button>
       </div>
       ${voiceBlock}${micBlock}${startBlock}${runningBlock}${handoffBlock}${terminalBlock}${transcriptBlock}`;
+
+    /*
+     * Keep the transcript on the newest line.
+     *
+     * render() rebuilds the node, so it comes back scrolled to the top and the
+     * line just spoken sits below the fold — you had to scroll after every turn
+     * to read a conversation you are in the middle of having.
+     */
+    const log = this.root.querySelector<HTMLElement>(".transcript");
+    if (log) log.scrollTop = log.scrollHeight;
 
     // Announce stage changes without re-announcing every repaint.
     const announcement = view.stage ?? view.terminal ?? "";
