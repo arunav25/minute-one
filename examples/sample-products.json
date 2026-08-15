@@ -1,0 +1,248 @@
+[
+  {
+    "id": "prod_519c06ca639f",
+    "key": "mo_pk_2ad4f1ecf86ac1b7855e77d7",
+    "goal": "Create your first booking link",
+    "name": "Acme Scheduling",
+    "steps": [
+      {
+        "id": "open-new-booking",
+        "objective": "Open the booking form",
+        "targetName": "New booking",
+        "instruction": "Choose New booking to open the booking form.",
+        "successText": "Booking created"
+      }
+    ],
+    "journeys": [
+      {
+        "id": "journey-1",
+        "goal": "Create your first booking link",
+        "steps": [
+          {
+            "id": "open-new-booking",
+            "objective": "Open the booking form",
+            "targetName": "New booking",
+            "instruction": "Choose New booking to open the booking form.",
+            "successText": "Booking created"
+          }
+        ],
+        "goalPhrases": []
+      }
+    ],
+    "createdAt": "2026-08-12T09:44:18.609Z",
+    "knowledge": [
+      {
+        "id": "kb_684c06a5b33a",
+        "body": "A ring group rings several agents at once. Create one under Teams then Ring groups.",
+        "title": "What is a ring group?",
+        "updatedAt": "2026-08-12T09:44:33.292Z"
+      },
+      {
+        "id": "kb_cbbb399835e2",
+        "body": "Free plans allow 50 bookings per month. Paid plans are unlimited.",
+        "title": "Booking limits",
+        "updatedAt": "2026-08-12T09:44:33.304Z"
+      }
+    ],
+    "goalPhrases": [],
+    "allowedOrigins": []
+  },
+  {
+    "id": "prod_be7dab5a0cfd",
+    "key": "mo_pk_9c2b11bbcef62f212c9bafd7",
+    "goal": "Send a message to a contact",
+    "name": "JustCall",
+    "steps": [
+      {
+        "id": "open-contacts",
+        "objective": "Open the contacts list",
+        "targetName": "Contacts",
+        "instruction": "Open Contacts in the left menu.",
+        "successText": "Add Contact"
+      },
+      {
+        "id": "find-contact",
+        "objective": "Find the person",
+        "instruction": "Type their name in the search box — at least four letters.",
+        "successText": "contact(s)"
+      },
+      {
+        "id": "open-message-box",
+        "objective": "Open the message box for that contact",
+        "instruction": "On their row, choose the message icon on the right.",
+        "successText": "New message"
+      },
+      {
+        "id": "send-sms",
+        "objective": "Write and send the message",
+        "targetName": "Send SMS",
+        "instruction": "Type your message, then choose Send SMS.",
+        "successText": "Message sent"
+      }
+    ],
+    "journeys": [
+      {
+        "id": "add-number",
+        "goal": "Add a phone number",
+        "steps": [
+          {
+            "id": "open-numbers",
+            "objective": "Open the phone numbers section",
+            "targetName": "Add a number",
+            "instruction": "Choose Add a number to open your phone numbers.",
+            "successText": "Port Number"
+          },
+          {
+            "id": "start-add-number",
+            "objective": "Start the add-number form",
+            "targetName": "Add Number",
+            "instruction": "Now choose Add Number, top right.",
+            "successText": "Number Details"
+          },
+          {
+            "id": "choose-country",
+            "objective": "Choose the country",
+            "targetName": "Select Country",
+            "instruction": "Open Select Country and pick your country.",
+            "successText": "Number type"
+          },
+          {
+            "id": "choose-type",
+            "objective": "Choose the number type",
+            "targetName": "Select Type",
+            "instruction": "Pick a number type — local, or toll free.",
+            "successText": "Your phone number"
+          },
+          {
+            "id": "review-number",
+            "objective": "Review the number",
+            "targetName": "Save & Next",
+            "instruction": "That is your number. Keep it, or choose a different one, then choose Save and Next.",
+            "successText": "Custom name"
+          },
+          {
+            "id": "confirm-number",
+            "objective": "Confirm and add",
+            "targetName": "Add number",
+            "instruction": "Check the summary, then choose Add number to finish.",
+            "successText": "Port Number"
+          }
+        ],
+        "goalPhrases": [
+          "add a number",
+          "add a phone number",
+          "buy a number",
+          "get a number",
+          "new number",
+          "phone number"
+        ]
+      },
+      {
+        "id": "send-message",
+        "goal": "Send a message to a contact",
+        "steps": [
+          {
+            "id": "open-contacts",
+            "objective": "Open the contacts list",
+            "targetName": "Contacts",
+            "instruction": "Open Contacts in the left menu.",
+            "successText": "Add Contact"
+          },
+          {
+            "id": "find-contact",
+            "objective": "Narrow the list to that one person",
+            "instruction": "Type their name in the search box. I will wait until only they are showing.",
+            "successText": "1 contact(s)",
+            "targetSelector": "input[placeholder*=characters]"
+          },
+          {
+            "id": "open-message-box",
+            "objective": "Open the message box",
+            "instruction": "Now choose the message icon on the far right of their row.",
+            "successText": "New message",
+            "targetSelector": "tbody tr:first-child td:last-child button:last-of-type"
+          },
+          {
+            "id": "send-sms",
+            "objective": "Write and send the message",
+            "targetName": "Send SMS",
+            "instruction": "Type your message, choose Send SMS, then Done to close it.",
+            "successText": "Message sent"
+          }
+        ],
+        "goalPhrases": [
+          "send a message",
+          "send a text",
+          "send an sms",
+          "text someone",
+          "message a contact",
+          "search for contacts",
+          "find a contact"
+        ]
+      }
+    ],
+    "createdAt": "2026-08-12T12:10:00.265Z",
+    "knowledge": [
+      {
+        "id": "kb_847c10b4705c",
+        "body": "Five steps: make your first call or send an SMS, set up your first outbound campaign, let an AI Voice Agent take your calls, connect the tools you already use, and invite your team.",
+        "title": "What is on the Get Started page",
+        "updatedAt": "2026-08-12T12:10:00.447Z"
+      },
+      {
+        "id": "kb_1dbd2f78fa24",
+        "body": "Talk to AIVA opens a modal on this page where you can test your AI Voice Agent. It offers a Phone Call tab, which rings your phone, and a Web Call tab, which talks in the browser.",
+        "title": "Talk to AIVA",
+        "updatedAt": "2026-08-12T12:10:00.477Z"
+      },
+      {
+        "id": "kb_37db0873f7dc",
+        "body": "Test calls are limited per day and the allowance resets every 24 hours to keep things fair and spam-free.",
+        "title": "AIVA trial call limits",
+        "updatedAt": "2026-08-12T12:10:00.498Z"
+      },
+      {
+        "id": "kb_070e1362f145",
+        "body": "Make a call, Send an SMS, Create a campaign and Create AI Voice Agent all open a different page in a new browser tab. Only Talk to AIVA stays on this page.",
+        "title": "Where the other buttons go",
+        "updatedAt": "2026-08-12T12:10:00.537Z"
+      },
+      {
+        "id": "kb_fbd87c52b0f5",
+        "body": "Only account owners and admins. Other roles are redirected to the dashboard.",
+        "title": "Who can see Get Started",
+        "updatedAt": "2026-08-12T12:10:00.693Z"
+      },
+      {
+        "id": "kb_93cd95c1c439",
+        "body": "Choose Invite your team on the Get Started page. Enter an email address, pick Team Member or Admin, then choose Invite. Your existing number is shared with the people you invite, and they can also buy their own numbers.",
+        "title": "Inviting team members",
+        "updatedAt": "2026-08-12T12:18:31.559Z"
+      },
+      {
+        "id": "kb_2966b54e29ab",
+        "body": "Make a call takes you to the dialer in this same tab. Send an SMS opens the messaging page.",
+        "title": "Make a call from Get Started",
+        "updatedAt": "2026-08-12T12:18:31.579Z"
+      },
+      {
+        "id": "kb_7c32e4a1bd99",
+        "body": "Yes. When you first open the JustCall dashboard a free number is already reserved for you — click 'Get this number' to claim it. If you'd rather have a different one, open the Phone Numbers section, click 'Add Number', and choose a country and number type.",
+        "kind": "qa",
+        "title": "Do I get a free phone number when I sign up?",
+        "updatedAt": "2026-08-13T22:56:01.732Z"
+      }
+    ],
+    "goalPhrases": [
+      "send a message",
+      "send a text",
+      "send an sms",
+      "text someone",
+      "message a contact",
+      "send him a message",
+      "send her a message",
+      "message john"
+    ],
+    "allowedOrigins": []
+  }
+]

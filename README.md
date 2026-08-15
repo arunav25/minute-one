@@ -63,6 +63,16 @@ It ships as one script tag. The host application changes nothing else.
         data-product-key="mo_pk_…"></script>
 ```
 
+<p align="center">
+  <img src="docs/images/widget.png" width="820" alt="The Minute One widget guiding a user through adding a phone number, with a live transcript" />
+</p>
+<p align="center"><em>The guide inside a host application — one instruction, the control it names, and the transcript.</em></p>
+
+<p align="center">
+  <img src="docs/images/search.png" width="820" alt="The console's retrieval inspector showing which help-centre passages a question returns, with similarity scores" />
+</p>
+<p align="center"><em>The console's retrieval inspector: exactly what the agent would answer from, with scores. Retrieval fails quietly — this is the screen that catches it.</em></p>
+
 ## Why it's different
 
 - **Proof, not optimism.** A guided tour advances because the script says so. A
@@ -153,17 +163,32 @@ tests and an offline dev loop run with no database at all.
 
 ## Quick start
 
+**No keys, no database, about two minutes.** Sample products, journeys and
+knowledge ship in the repository, so a fresh clone has something to look at:
+
 ```bash
 git clone https://github.com/arunav25/minute-one.git
 cd minute-one
 npm install
-cp .env.example .env.local     # fill in the keys you have
-npm run dev                    # http://localhost:3200
+node scripts/seed-products.mjs   # loads examples/sample-products.json
+npm run dev                      # http://localhost:3200
 ```
 
-Open **http://localhost:3200** for the landing page,
-**/console** to create a product, and **/host-test.html** for a stand-in
-customer app with the widget already installed.
+Then open:
+
+| URL | What's there |
+| --- | --- |
+| `/` | The landing page |
+| `/console` | Two seeded products, three journeys, knowledge sources, sessions |
+| `/host-test.html` | A stand-in customer app with the widget installed |
+| `/embed-test?voice=mock` | The full journey end to end on a **scripted voice adapter — no key** |
+
+`?voice=mock` is the honest demo: it runs the real engine, the real verifier and
+the real overlay, and labels itself as not-real-voice throughout.
+
+**To add real voice and retrieval**, copy `cp .env.example .env.local`, add the
+keys you have, and restart. Voice additionally needs TLS (below) because
+browsers only grant microphone access on a secure origin.
 
 **Voice needs HTTPS.** Browsers only grant microphone access on a secure origin,
 so for a real voice session use:
@@ -247,7 +272,8 @@ minute-one/
 ├─ docs/
 │  ├─ architecture/     Code map, knowledge base, journeys
 │  └─ product/          Roadmap
-├─ scripts/             SDK build, knowledge ingest, seeding, dev certs
+├─ examples/           Sample products, journeys and knowledge — seeds a clone
+├─ scripts/             SDK build, knowledge ingest, seeding, screenshots, certs
 ├─ e2e/                 Playwright end-to-end tests
 └─ public/              Built SDK bundle, brand assets, demo host page
 ```
