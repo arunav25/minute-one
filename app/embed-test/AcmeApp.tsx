@@ -35,10 +35,12 @@ export function AcmeApp() {
     <div className="ac">
       <header className="ac-top">
         <div className="ac-brand">Acme Scheduling</div>
-        <p className="ac-tag">
-          A stand-in beta product. The only Minute One code on this page is the
-          guide mounted alongside it — the product knows nothing about it.
-        </p>
+        {/*
+          A product-style subtitle, not an explanation of the demo. This page
+          stands in for a customer's app; commentary about how the guide is
+          wired belongs in the README, not on the screen a visitor judges.
+        */}
+        <p className="ac-tag">Team scheduling</p>
         <button className="ac-reset" data-testid="acme-reset" onClick={reset}>
           Reset demo
         </button>

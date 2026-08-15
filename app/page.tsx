@@ -48,7 +48,7 @@ export default function Home() {
           <a className="lp-ghost" href="/console">
             Console
           </a>
-          <a className="lp-cta" href="/host-test.html">
+          <a className="lp-cta" href="/embed-test?voice=mock">
             Live demo
           </a>
         </div>
@@ -70,7 +70,7 @@ export default function Home() {
           </p>
           <div className="lp-hero-ctas">
             <DemoVideo className="lp-cta big">▶&nbsp; Watch the demo — 1 min</DemoVideo>
-            <a className="lp-ghost big" href="/host-test.html">
+            <a className="lp-ghost big" href="/embed-test?voice=mock">
               Try it live →
             </a>
           </div>
@@ -323,7 +323,7 @@ export default function Home() {
         </h2>
         <div className="lp-hero-ctas center">
           <DemoVideo className="lp-cta big">▶&nbsp; Watch the demo — 1 min</DemoVideo>
-          <a className="lp-ghost big" href="/host-test.html">
+          <a className="lp-ghost big" href="/embed-test?voice=mock">
             Try it live →
           </a>
           <a className="lp-ghost big" href="/console">

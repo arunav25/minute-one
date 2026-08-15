@@ -53,7 +53,7 @@ CI runs the first three on every pull request.
 
 If you changed anything in `packages/web` or `packages/voice-*`, run
 `npm run build:sdk` and confirm the widget still works on
-`/host-test.html` — the bundle is a build artifact and a stale one is a
+`/embed-test` — the bundle is a build artifact and a stale one is a
 confusing failure.
 
 ## Adding a voice provider

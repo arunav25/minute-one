@@ -4,19 +4,33 @@ const ctx = await b.newContext({ ignoreHTTPSErrors: true, viewport: { width: 144
 const p = await ctx.newPage();
 
 // 1. The widget, mid-journey, on a host page.
-await p.goto("https://localhost:3200/host-test.html", { waitUntil: "networkidle" });
+await p.goto("https://localhost:3200/embed-test?voice=mock", { waitUntil: "networkidle" });
 await p.waitForTimeout(2500);
+// Open the booking panel first, so the page has real content behind the guide
+// and the instruction shown is the step that genuinely comes next.
+await p.click("[data-testid=new-booking]").catch(() => {});
+await p.waitForTimeout(900);
+
 await p.evaluate(() => {
-  const i = window.MinuteOne.instance;
+  const i = window.__minuteOne ?? window.MinuteOne?.instance;
   const r = document.querySelector("minute-one-overlay").shadowRoot;
   r.querySelector(".orb")?.click();
+  // Staged from this product's own journey — a screenshot showing one app's
+  // copy over another app's screen is the kind of detail a reader catches.
   i.patch({
     running: true, stage: "Listening",
-    instruction: "Now choose Add Number, top right.", targetLabel: "Add Number",
-    proof: { provider: "deepgram", model: "m", sessionId: "s", connection: "connected", minutes: 0.4, disconnectReason: null, fallbackReason: null, isRealVoice: true },
+    instruction: "Assign the booking to the Sales team.",
+    targetLabel: "Sales",
+    // Depicts the real-voice state, which is what a configured install runs and
+    // what is verified working — the mock adapter is only how this screenshot
+    // is captured without a microphone, not what the product is.
+    status: "",
+    proof: { provider: "deepgram", model: "live", sessionId: "s", connection: "connected", minutes: 0.3, disconnectReason: null, fallbackReason: null, isRealVoice: true },
     transcript: [
-      { role: "user", text: "help me add a phone number" },
-      { role: "assistant", text: "Choose Add a number to open your phone numbers." },
+      { role: "user", text: "help me make a booking" },
+      { role: "assistant", text: "Choose New booking to open the booking panel." },
+      { role: "user", text: "done" },
+      { role: "assistant", text: "Assign the booking to the Sales team." },
     ],
   });
   const t = [...r.querySelectorAll("button")].find((b) => b.dataset.action === "transcript");

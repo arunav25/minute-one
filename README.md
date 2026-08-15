@@ -180,8 +180,8 @@ Then open:
 | --- | --- |
 | `/` | The landing page |
 | `/console` | Two seeded products, three journeys, knowledge sources, sessions |
-| `/host-test.html` | A stand-in customer app with the widget installed |
-| `/embed-test?voice=mock` | The full journey end to end on a **scripted voice adapter — no key** |
+| `/embed-test` | A stand-in customer app with the widget installed |
+| `/embed-test?voice=mock` | The same, running the full journey on a **scripted voice adapter — no key** |
 
 `?voice=mock` is the honest demo: it runs the real engine, the real verifier and
 the real overlay, and labels itself as not-real-voice throughout.
