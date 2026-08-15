@@ -62,6 +62,38 @@ if (!process.env.DATABASE_URL) {
 
 const sql = neon(process.env.DATABASE_URL);
 
+/*
+ * Never let seeding revoke access.
+ *
+ * This script replaces the product set, and the sample file ships with empty
+ * allowedOrigins on purpose — a clone must not inherit somebody else's tunnel.
+ * Run against a populated database, that combination silently wiped the live
+ * allowlist and every embed started 403ing. Existing origins are now carried
+ * over: seeding is for content, not for authorisation.
+ */
+await sql`
+  CREATE TABLE IF NOT EXISTS products (
+    id         TEXT PRIMARY KEY,
+    key        TEXT UNIQUE NOT NULL,
+    data       JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`;
+const existing = new Map(
+  ((await sql`SELECT key, data FROM products`)).map((r) => [r.key, r.data])
+);
+let preserved = 0;
+products = products.map((p) => {
+  const prior = existing.get(p.key);
+  if (prior?.allowedOrigins?.length && !p.allowedOrigins?.length) {
+    preserved++;
+    return { ...p, allowedOrigins: prior.allowedOrigins };
+  }
+  return p;
+});
+if (preserved) {
+  console.log(`kept existing allowed origins for ${preserved} product(s)`);
+}
+
 await sql`
   CREATE TABLE IF NOT EXISTS products (
     id         TEXT PRIMARY KEY,
