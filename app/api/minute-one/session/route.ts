@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const DEEPGRAM_GRANT_URL = "https://api.deepgram.com/v1/auth/grant";
 
+
 function cors(origin: string | null) {
   return {
     "access-control-allow-origin": origin ?? "http://localhost:3200",
@@ -54,10 +55,25 @@ async function authorise(
  * this server-to-server request and is never returned to the browser.
  */
 export async function POST(req: Request) {
-  const apiKey = process.env.DEEPGRAM_API_KEY;
   const origin = req.headers.get("origin");
   const headers = cors(origin);
+  const url = new URL(req.url);
 
+  /*
+   * Which provider this mint is for.
+   *
+   * The client asks for one by name and falls back to the next if the socket
+   * refuses to open, so this route mints for exactly what was asked and does
+   * not silently substitute — a session that quietly ran on a different vendor
+   * than the caller believed would make the provider proof a lie.
+   */
+  const provider = url.searchParams.get("provider") === "pyai" ? "pyai" : "deepgram";
+
+  if (provider === "pyai") {
+    return mintPyAI(req, url, origin, headers);
+  }
+
+  const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       {
@@ -69,7 +85,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const url = new URL(req.url);
   const decision = await authorise(url.searchParams.get("key"), origin, url.origin);
   if (!decision.ok) {
     return NextResponse.json(
@@ -136,6 +151,88 @@ export async function POST(req: Request) {
         error: `Deepgram session could not be created: ${message}`,
         code: "create_session_failed",
       },
+      { status: 502, headers }
+    );
+  }
+}
+
+/**
+ * Mint a short-lived PyAI Omni session token.
+ *
+ * Same shape of guarantee as the Deepgram path: the long-lived key stays on the
+ * server, the browser receives a token that expires, and the calling origin is
+ * checked against both the product's allowlist and this server's own spend gate
+ * before anything is minted.
+ */
+async function mintPyAI(
+  req: Request,
+  url: URL,
+  origin: string | null,
+  headers: Record<string, string>
+) {
+  const apiKey = process.env.PYAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "PYAI_API_KEY is not set on the server.", code: "missing_api_key" },
+      { status: 503, headers }
+    );
+  }
+
+  const decision = await authorise(url.searchParams.get("key"), origin, url.origin);
+  if (!decision.ok) {
+    return NextResponse.json(
+      { error: decision.reason, code: "origin_not_allowed" },
+      { status: 403, headers }
+    );
+  }
+
+  const configuredOrigins = parseOrigins(process.env.PYAI_ALLOWED_ORIGINS);
+  if (
+    origin &&
+    configuredOrigins.length > 0 &&
+    !originAllowed(origin, configuredOrigins)
+  ) {
+    return NextResponse.json(
+      { error: `origin ${origin} is not in PYAI_ALLOWED_ORIGINS`, code: "origin_not_allowed" },
+      { status: 403, headers }
+    );
+  }
+
+  const ttlSeconds = clampTtl(process.env.PYAI_TOKEN_TTL_SECONDS);
+
+  /*
+   * A minted browser token must be origin-locked, and PyAI rejects `*` — so a
+   * request that arrived without an Origin header has nothing safe to lock to.
+   * Same-origin callers send none; those get this server's own origin.
+   */
+  const lockTo = origin ?? url.origin;
+
+  try {
+    const { PyAI } = await import("@pyai/sdk");
+    const client = new PyAI({ apiKey });
+    const session = await client.omni.createSession({
+      allowedOrigins: [lockTo],
+      ttlSeconds,
+      ...(process.env.PYAI_AGENT_ID
+        ? { sessionLabel: process.env.PYAI_AGENT_ID }
+        : {}),
+    });
+
+    return NextResponse.json(
+      {
+        provider: "pyai",
+        token: session.token,
+        url: session.url,
+        expiresIn: ttlSeconds,
+        agentId: process.env.PYAI_AGENT_ID || null,
+      },
+      { headers }
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[session-token] PyAI grant failed:", message);
+    return NextResponse.json(
+      { error: `PyAI session could not be created: ${message}`, code: "create_session_failed" },
       { status: 502, headers }
     );
   }

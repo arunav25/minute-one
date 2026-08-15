@@ -37,7 +37,23 @@ export type RuntimeConfig = {
    * handful of hand-written notes.
    */
   knowledgeSearch: boolean;
+  /**
+   * Voice providers this server holds a key for, in the order the client should
+   * try them. PyAI leads when its key is present; the client falls back to the
+   * next entry if a socket refuses to open, so a missing or misbehaving vendor
+   * degrades instead of killing the session.
+   */
+  voiceProviders: string[];
 };
+
+/** Ordered by preference, filtered to what the server can actually mint. */
+function availableVoiceProviders(): string[] {
+  const ordered: Array<[string, string | undefined]> = [
+    ["pyai", process.env.PYAI_API_KEY],
+    ["deepgram", process.env.DEEPGRAM_API_KEY],
+  ];
+  return ordered.filter(([, key]) => Boolean(key)).map(([name]) => name);
+}
 
 const MAX_KB_CHARS = 6000;
 
@@ -192,5 +208,6 @@ export async function compileProduct(product: Product): Promise<RuntimeConfig> {
     persona,
     knowledgeTitles: product.knowledge.map((k) => k.title),
     knowledgeSearch,
+    voiceProviders: availableVoiceProviders(),
   };
 }

@@ -34,7 +34,17 @@ export type MinuteOneConfig = {
    */
   flows?: FlowDefinition[];
   /** Factory so the SDK never holds a provider instance it did not create. */
-  createVoiceAdapter: () => VoiceAdapter;
+  createVoiceAdapter?: () => VoiceAdapter;
+  /**
+   * Ordered provider factories, tried in turn until one connects.
+   *
+   * A vendor outage should cost a fallback, not the session. Whichever adapter
+   * actually opens is the one whose proof is recorded — the console must never
+   * show a provider the session did not really run on.
+   */
+  createVoiceAdapterFor?: Array<() => Promise<VoiceAdapter>>;
+  /** Names matching `createVoiceAdapterFor`, for logging which one was used. */
+  voiceProviders?: string[];
   /** Only reachable from an explicit user action after a real failure. */
   createDemoAdapter?: (reason: string) => VoiceAdapter;
   /** Where session events are posted. Set null to keep them in memory. */
@@ -101,8 +111,7 @@ const DEFAULTS = {
 };
 
 export class MinuteOne {
-  private config: Required<Pick<MinuteOneConfig, "flow" | "createVoiceAdapter">> &
-    MinuteOneConfig;
+  private config: Required<Pick<MinuteOneConfig, "flow">> & MinuteOneConfig;
   private overlay: ShadowOverlay | null = null;
   private spotlight: Spotlight | null = null;
   private observer: LiveDomObserver | null = null;
@@ -167,22 +176,59 @@ export class MinuteOne {
   }
 
   /**
-   * Connects real voice and runs the flow. Rejects rather than falling back:
-   * a failed real-provider connection must be visible, never silently swapped.
+   * Connect voice and run the flow.
+   *
+   * Walks the configured providers in order and keeps the first that opens.
+   * Falling back between *real* providers is fine — the session still runs on
+   * genuine vendor audio, and the proof records which one. What is still never
+   * automatic is the drop to the scripted mock: that stays an explicit user
+   * choice after a visible failure, because a demo must never be mistaken for a
+   * live call.
    */
   async start(): Promise<void> {
     if (!this.overlay) this.init();
-    try {
-      await this.begin(this.config.createVoiceAdapter(), null);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+
+    // A single injected factory (tests, hosts that construct their own adapter)
+    // still takes precedence over the configured provider order.
+    const single = this.config.createVoiceAdapter;
+    const factories: Array<() => Promise<VoiceAdapter>> = single
+      ? [async () => single()]
+      : (this.config.createVoiceAdapterFor ?? []);
+    const names = single ? ["host"] : (this.config.voiceProviders ?? []);
+
+    if (!factories.length) {
       this.patch({
         running: false,
-        connectionError: message,
+        connectionError: "no voice provider is configured on the server",
         status: "Couldn't start",
         proof: null,
       });
+      return;
     }
+
+    const failures: string[] = [];
+    for (let i = 0; i < factories.length; i++) {
+      try {
+        await this.begin(await factories[i](), null);
+        return;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        const name = names[i] ?? `provider ${i + 1}`;
+        failures.push(`${name}: ${message}`);
+        // Named so an integrator can see which vendor refused and why; the
+        // panel keeps showing the user something they can act on instead.
+        console.error(`[minute-one] ${name} voice connection failed:`, message);
+        await this.adapter?.disconnect("falling back to the next provider").catch(() => {});
+        this.adapter = null;
+      }
+    }
+
+    this.patch({
+      running: false,
+      connectionError: failures.join(" · "),
+      status: "Couldn't start",
+      proof: null,
+    });
   }
 
   /** Explicit opt-in only. Never called automatically on failure. */

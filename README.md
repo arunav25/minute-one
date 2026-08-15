@@ -141,11 +141,25 @@ chose and proved.
 Voice is a swappable role behind one interface (`VoiceAdapter`). Speech-to-text,
 the LLM and text-to-speech are configured per session by the server.
 
-| Provider | Status | Required key |
+**The server decides from its own environment, and the client falls back.** At
+boot, `/api/minute-one/config` reports which providers this deployment holds a
+key for, in preference order. The widget tries them in turn and keeps the first
+socket that opens, so a vendor being unreachable costs a fallback rather than
+the session — and the provider that *actually* connected is the one recorded on
+the session, because a proof naming the vendor you tried would be worthless.
+
+| Provider | Role | Required key |
 | --- | --- | --- |
-| **Deepgram Voice Agent** | ✅ working, deployed | `DEEPGRAM_API_KEY` |
-| **PyAI Omni** | ⚠️ adapter written, unverified against a live account | `PYAI_API_KEY` |
-| **Mock** | ✅ scripted, no key — used by tests and demo mode | — |
+| **PyAI Omni** | **Default.** Used whenever `PYAI_API_KEY` is set | `PYAI_API_KEY` |
+| **Deepgram Voice Agent** | Automatic fallback, and the default without a PyAI key | `DEEPGRAM_API_KEY` |
+| **Mock** | Scripted, no key — tests and `?voice=mock` | — |
+
+Set both keys and you get PyAI with a live safety net. Set one and that one is
+used. Set neither and the widget says so instead of pretending.
+
+Falling back between real providers is automatic. Dropping to the **mock** never
+is: that stays an explicit choice after a visible failure, so a scripted preview
+can never be mistaken for a live call.
 
 Embeddings for the knowledge base use any OpenAI-compatible endpoint
 (`text-embedding-3-small` by default).
@@ -153,7 +167,7 @@ Embeddings for the knowledge base use any OpenAI-compatible endpoint
 ## Requirements
 
 - **Node.js 22+**
-- A **Deepgram** API key for real voice
+- A **PyAI** key for voice (or a **Deepgram** key — either works, both is best)
 - An **OpenAI** (or compatible) key for the knowledge base
 - A **NeonDB** connection string (Postgres + `pgvector`) — products, journeys,
   sessions and embeddings live there
@@ -204,7 +218,10 @@ into the browser script.
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `DEEPGRAM_API_KEY` | Voice. Exchanged server-side for a short-lived browser token | — |
+| `PYAI_API_KEY` | Voice, preferred. Exchanged server-side for a short-lived browser token | — |
+| `PYAI_ALLOWED_ORIGINS` | Spend gate for PyAI mints. Supports `https://*.example.com` | — |
+| `PYAI_AGENT_ID` | Adopt a Voice Agent built in the PyAI console | — |
+| `DEEPGRAM_API_KEY` | Voice, used as the fallback (or the default with no PyAI key) | — |
 | `DEEPGRAM_ALLOWED_ORIGINS` | Spend gate: origins allowed to mint voice tokens. Supports `https://*.example.com` | — |
 | `DEEPGRAM_LISTEN_MODEL` | Speech-to-text | `flux-general-en` |
 | `DEEPGRAM_THINK_MODEL` | Conversation model | `gpt-4o-mini` |
@@ -317,7 +334,12 @@ does not overstate what happened.
 
 **Not real yet**
 
-- **PyAI adapter** — written against the docs, never run against a live account.
+- **PyAI spoken round trip** — the adapter is the default path and its server
+  mint is verified against the live API (`omni.createSession` returns a real
+  origin-locked token and Omni socket URL), with provider fallback covered by
+  tests. The full spoken conversation has been exercised end to end on Deepgram;
+  on PyAI the socket has not yet been driven with a microphone, so treat that
+  last leg as unproven until you run it with your own key.
 - **Phone hand-off** — the browser has no carrier leg. Accepting shows a number
   and a session reference; it does not transfer a call.
 - **Journey editing for multiple journeys** — the console's editor still assumes

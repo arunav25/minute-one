@@ -29,6 +29,8 @@ export type RuntimeConfig = {
   knowledgeTitles: string[];
   /** True when the product has an ingested corpus to retrieve from. */
   knowledgeSearch?: boolean;
+  /** Voice providers the server can mint for, in preference order. */
+  voiceProviders?: string[];
 };
 
 /**
@@ -141,22 +143,40 @@ export async function boot(options: BootOptions): Promise<MinuteOne> {
       )}`
     : undefined;
 
-  const { DeepgramVoiceAdapter } = await import("@minute-one/voice-deepgram");
+  /*
+   * Voice providers, in the order the server prefers them.
+   *
+   * Each entry is a factory, not an instance: an adapter is only constructed
+   * when its turn comes, so an unused vendor's module is never even loaded.
+   * The SDK walks the list and stops at the first socket that opens — a vendor
+   * being down degrades the session to the next one instead of ending it.
+   */
+  const wanted = config.voiceProviders?.length
+    ? config.voiceProviders
+    : ["deepgram"];
+  const tokenUrl = (provider: string) =>
+    `${host.replace(/\/$/, "")}/api/minute-one/session?key=${encodeURIComponent(
+      options.productKey
+    )}&provider=${provider}`;
+
+  const factories = wanted.map((provider) => async () => {
+    if (provider === "pyai") {
+      const { PyAIVoiceAdapter } = await import("@minute-one/voice-pyai");
+      return new PyAIVoiceAdapter({ tokenEndpoint: tokenUrl("pyai") });
+    }
+    const { DeepgramVoiceAdapter } = await import("@minute-one/voice-deepgram");
+    return new DeepgramVoiceAdapter({ tokenEndpoint: tokenUrl("deepgram") });
+  });
 
   const guide = new MinuteOne({
     flow,
     flows,
-    createVoiceAdapter:
-      options.createVoiceAdapter ??
-      (() =>
-        new DeepgramVoiceAdapter({
-          // The product key travels with the mint request so the server can
-          // check this page's origin against that product's allowlist. Without
-          // it, a cross-origin endpoint would mint voice tokens for any caller.
-          tokenEndpoint: `${host.replace(/\/$/, "")}/api/minute-one/session?key=${encodeURIComponent(
-            options.productKey
-          )}`,
-        })),
+    // The product key travels with every mint request so the server can check
+    // this page's origin against that product's allowlist. Without it, a
+    // cross-origin endpoint would mint voice tokens for any caller.
+    createVoiceAdapter: options.createVoiceAdapter,
+    voiceProviders: options.createVoiceAdapter ? undefined : wanted,
+    createVoiceAdapterFor: options.createVoiceAdapter ? undefined : factories,
     createDemoAdapter: options.createDemoAdapter,
     eventsEndpoint: `${host.replace(/\/$/, "")}/api/minute-one/events`,
     knowledgeSearchEndpoint,

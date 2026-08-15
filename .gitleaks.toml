@@ -1,0 +1,22 @@
+# gitleaks configuration
+#
+# Extends the default rule set; only adds an allowlist. Nothing here weakens
+# detection of an actual credential.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Minute One product keys (mo_pk_…) are public by design.
+
+A product key is what a host page carries in its script tag to select which
+product's context to load — it is visible in the page source of every install.
+It cannot mint voice credit or read another product's data: /api/minute-one/session
+checks the calling origin against the product's allowlist and the server's own
+spend gate before exchanging the long-lived provider key.
+
+Treating these as secrets would train the team to click past a red CI run, which
+is a worse outcome than the finding it is suppressing.
+"""
+regexes = ['''mo_pk_[0-9a-f]{24}''']
+paths = ['''examples/.*\.json''', '''README\.md''', '''docs/.*\.md''']
