@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest something Minute One should do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard today? Describe the situation, not the solution.
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Does it hold the line?
+      description: >
+        Minute One's one claim is that nothing advances without proof. Requests
+        that trade this for a smoother demo are usually declined.
+      options:
+        - label: This does not let anything other than the controller advance a step
+        - label: This does not require `packages/core` to know about a vendor

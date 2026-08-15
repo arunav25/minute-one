@@ -1,177 +1,337 @@
-# Minute One
+<p align="center">
+  <img src="public/brand/png/icon-256.png" width="88" alt="Minute One" />
+</p>
 
-A voice onboarding guide that refuses to advance until the intended result is
-actually visible on the page.
+<h1 align="center">Minute One</h1>
 
-Guided tours advance because a script says so. Minute One speaks one instruction,
-observes the page afterwards, checks a declared success condition, and stays put
-until that condition is met. A wrong action stays blocked and the recovery is
-phrased differently each time. The model can rephrase, answer questions and
-explain a failure — it cannot decide that a step passed. Only the verification
-gate advances a step.
+<p align="center">
+  <b>Verified conversational onboarding.</b><br />
+  A voice guide that walks a user to their first outcome — and refuses to
+  advance until the page proves it happened.
+</p>
 
-It ships as one script tag. The host application changes nothing else.
+<p align="center">
+  <a href="#license"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-7C5CFF.svg" /></a>
+  <img alt="Node 22+" src="https://img.shields.io/badge/node-%E2%89%A522-3c873a.svg" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" />
+  <a href="https://minute-one-ten.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/demo-live-A487FF.svg" /></a>
+</p>
 
 ---
 
-## Setup
+**Project status:** pre-1.0 and under active development. The engine, the
+console, the knowledge base and the Deepgram voice path are working end to end
+and deployed. The PyAI adapter is written but unverified against a live account.
+There is no published npm package yet — you run it from source. See
+[Status & roadmap](#status--roadmap).
 
-Node 22+, and a Deepgram API key for real voice.
+## Table of contents
 
-```bash
-npm install
-cp .env.example .env.local     # add DEEPGRAM_API_KEY
-npm run dev                    # http://localhost:3200
-```
+- [What it is](#what-it-is)
+- [Why it's different](#why-its-different)
+- [How it works](#how-it-works)
+- [Providers](#providers)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Repository layout](#repository-layout)
+- [Development](#development)
+- [What is real, and what is not](#what-is-real-and-what-is-not)
+- [Status & roadmap](#status--roadmap)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
 
-`npm run dev:https` instead if you need to embed on an HTTPS host page — a page
-served over HTTPS cannot load a script from HTTP. It issues a certificate from a
-local CA the machine already trusts, and verifies that trust rather than assuming
-it; see `scripts/dev-cert.mjs`.
+## What it is
 
-Opening the app puts you in the console:
+Minute One is an activation layer that runs **inside** your product. A voice
+agent holds the context of your app — your help centre, your UI — watches the
+live page, and talks a new user through their first real task one instruction at
+a time. The user performs every click; the guide never clicks for them.
 
-1. **Create a product** — the app you want guided. You get a key, `mo_pk_…`.
-2. **Knowledge** — everything the guide may answer from. It says it does not know
-   rather than inventing.
-3. **Journey** — the steps to verify. Each needs an instruction and a success
-   condition that is only true *after* the action.
-4. **Install snippet** — paste one tag into the host app.
+The part that matters: **a deterministic controller, not the model, decides when
+a step is done.** Every step declares evidence — a route, a piece of text that
+must be visible — and the controller checks the page after each instruction. If
+the evidence is absent the step stays blocked, the guide explains the mismatch
+differently, and a wrong action is visibly caught rather than silently skipped.
+
+It ships as one script tag. The host application changes nothing else.
 
 ```html
-<script src="http://localhost:3200/minute-one.js"
+<script src="https://your-minute-one-host/minute-one.js"
         data-product-key="mo_pk_…"></script>
 ```
 
-To attribute sessions to real users, set the settings object before the tag:
+## Why it's different
 
-```html
-<script>
-  window.minuteOneSettings = {
-    productKey: "mo_pk_…",
-    user: { id, email, name, createdAt, locale },
-    company: { id, name, meta: { plan: "enterprise" } },
-  };
-</script>
-<script src="http://localhost:3200/minute-one.js"></script>
+- **Proof, not optimism.** A guided tour advances because the script says so. A
+  chatbot declares success when you stop replying. Minute One advances only when
+  the intended result is observable on the page.
+- **The user does the work.** Automation completes the task and teaches nothing.
+  Here the path is stored as something the user *did*, so they find it again next
+  week without help.
+- **The model is bounded.** It speaks, rephrases, answers questions and explains
+  failures. It cannot mark a step passed, invent a route, or see a password.
+- **Retrieval, not prompt-stuffing.** Your help centre is chunked and embedded;
+  the agent retrieves the relevant passages per question and answers only from
+  them — so the corpus scales past what fits in a prompt.
+- **Bring your own keys.** Provider secrets stay server-side; the browser gets a
+  short-lived, origin-locked token.
+
+## How it works
+
+Four things in a loop, on every screen the user touches.
+
+```
+  user speaks a goal
+        │
+        ▼
+  ┌─────────────┐   journey chosen from what they said (goal phrases)
+  │   LISTEN    │   redacted semantic snapshot of the live DOM:
+  │             │   roles · names · dialogs · notices — never raw HTML
+  └──────┬──────┘
+         ▼
+  ┌─────────────┐   one spoken instruction, ≤18 words
+  │    GUIDE    │   spotlight ring drawn on the real control
+  └──────┬──────┘   (resolved by accessible name, test id, or selector)
+         ▼
+  ┌─────────────┐   controller re-observes and checks the step's declared
+  │   VERIFY    │   success rules against the page
+  └──────┬──────┘
+         │
+    passed? ──yes──►  advance · record evidence
+         │
+         no
+         ▼
+  ┌─────────────┐   bounded retries, a *different* explanation each time
+  │   RECOVER   │   (location → recognition → reset), then offer phone help
+  └─────────────┘
+         │
+         ▼
+  every session ends in exactly one recorded state:
+  completed · partial · failed · deadline
 ```
 
-Identity is reported with sessions and **never added to the voice context** — the
-guide does not speak your users' names or email addresses back to them.
+Two rules hold the whole design together:
+
+1. **The controller owns progression.** The voice provider may speak, listen and
+   request tools; it has no API for marking a step successful.
+2. **A step with no declared proof never passes.** An empty success rule is
+   treated as unproven, so an unfinished journey fails closed rather than open.
+
+Alongside the journey, the agent can answer questions at any time via a
+`search_knowledge` tool that queries a pgvector index of your help centre. While
+a step is open, **the authored step outranks any retrieved article** — help
+articles describe every route a product supports; a journey is the one route you
+chose and proved.
+
+## Providers
+
+Voice is a swappable role behind one interface (`VoiceAdapter`). Speech-to-text,
+the LLM and text-to-speech are configured per session by the server.
+
+| Provider | Status | Required key |
+| --- | --- | --- |
+| **Deepgram Voice Agent** | ✅ working, deployed | `DEEPGRAM_API_KEY` |
+| **PyAI Omni** | ⚠️ adapter written, unverified against a live account | `PYAI_API_KEY` |
+| **Mock** | ✅ scripted, no key — used by tests and demo mode | — |
+
+Embeddings for the knowledge base use any OpenAI-compatible endpoint
+(`text-embedding-3-small` by default).
+
+## Requirements
+
+- **Node.js 22+**
+- A **Deepgram** API key for real voice
+- An **OpenAI** (or compatible) key for the knowledge base
+- A **NeonDB** connection string (Postgres + `pgvector`) — products, journeys,
+  sessions and embeddings live there
+
+Without `DATABASE_URL` the product store falls back to a local JSON file, so the
+tests and an offline dev loop run with no database at all.
+
+## Quick start
 
 ```bash
-npm test          # 48 unit tests
-npm run typecheck
-npm run e2e       # 5 browser tests, real DOM and overlay
+git clone https://github.com/arunav25/minute-one.git
+cd minute-one
+npm install
+cp .env.example .env.local     # fill in the keys you have
+npm run dev                    # http://localhost:3200
 ```
 
-The browser tests run voice on the mock, requested explicitly with
-`/embed-test?voice=mock` — they have no microphone. Point them at an
-already-running server with `MINUTE_ONE_BASE_URL=https://localhost:3200 npm run e2e`.
+Open **http://localhost:3200** for the landing page,
+**/console** to create a product, and **/host-test.html** for a stand-in
+customer app with the widget already installed.
 
-## Architecture
+**Voice needs HTTPS.** Browsers only grant microphone access on a secure origin,
+so for a real voice session use:
 
-```
-@minute-one/core          the engine: controller, verification gate, bounded
-                          retries, budgets, terminal outcomes, session events.
-                          Knows nothing about any product or voice provider.
-@minute-one/web           the embeddable SDK: init/start/track/getStatus/destroy,
-                          DOM + route observation, Shadow DOM overlay,
-                          spotlight, microphone permission, redaction.
-@minute-one/voice-deepgram
-                          real browser voice over Deepgram Voice Agent.
-@minute-one/voice-pyai    retained provider adapter; not selected by default.
-@minute-one/voice-mock    tests, and an explicitly labelled offline demo.
-app/, src/server/         console, config and session endpoints, event store.
-app/embed-test/           a generic demo product (Acme Scheduling) with the
-                          guide mounted, for trying it locally and for the
-                          browser tests.
+```bash
+npm run dev:https              # generates a local cert, then serves on https
 ```
 
-The journey is **manifest-authoritative**: the flow owns step order, semantic
-target descriptions, success conditions, retry limits and terminal outcomes. Page
-context is **runtime-derived**: URL, headings, controls, dialogs, notices and
-errors are read live, and targets are located from semantic descriptions rather
-than brittle selectors.
+## Configuration
 
-Four classes of evidence are defined: DOM condition, URL condition, host
-application event, backend-confirmed event.
+Copy `.env.example` to `.env.local`. Every value is server-side; none is bundled
+into the browser script.
 
-Deepgram supplies listening, reasoning and speech, but never the verification
-contract. Minute One sends the authored tools and current page context to the
-voice session. Only the local controller can mark a step successful.
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `DEEPGRAM_API_KEY` | Voice. Exchanged server-side for a short-lived browser token | — |
+| `DEEPGRAM_ALLOWED_ORIGINS` | Spend gate: origins allowed to mint voice tokens. Supports `https://*.example.com` | — |
+| `DEEPGRAM_LISTEN_MODEL` | Speech-to-text | `flux-general-en` |
+| `DEEPGRAM_THINK_MODEL` | Conversation model | `gpt-4o-mini` |
+| `DEEPGRAM_SPEAK_MODEL` | Text-to-speech | `aura-2-thalia-en` |
+| `OPENAI_API_KEY` | Embeddings for the knowledge base | — |
+| `EMBEDDING_MODEL` | Must match between ingest and query | `text-embedding-3-small` |
+| `DATABASE_URL` | NeonDB (Postgres + pgvector) | falls back to `.data/` JSON |
+| `NEXT_PUBLIC_HELP_NUMBER` | Shown on the phone-help card | — |
+
+## Usage
+
+**1. Create a product** in the console. You get a public `mo_pk_…` key — it
+selects context, it cannot authorise voice.
+
+**2. Add knowledge.** Paste text or Q&A pairs in *Data sources*, or import a help
+centre archive:
+
+```bash
+node scripts/ingest-knowledge.mjs ./help-archive mo_pk_… --include=scripts/knowledge-onboarding.txt
+```
+
+Use *Search* in the console to see exactly which passages the agent would
+retrieve for a question, with similarity scores. Retrieval failures are quiet by
+nature — this is the screen that catches them.
+
+**3. Author a journey.** Each step names the control to point at and the
+on-screen evidence that proves it happened:
+
+```jsonc
+{
+  "id": "open-numbers",
+  "objective": "Open the phone numbers section",
+  "instruction": "Choose Add a number to open your phone numbers.",
+  "targetName": "Add a number",   // or targetSelector for unlabelled controls
+  "successText": "Port Number"    // proof — only visible once the step is done
+}
+```
+
+A product can hold several journeys; the agent picks one from what the user says.
+
+**4. Install the snippet** on the page you want guided. Add the host's origin to
+the product's allowed origins and to `DEEPGRAM_ALLOWED_ORIGINS`.
+
+**5. Watch Sessions** in the console — every run, its provider proof, and a
+timeline of what was instructed, checked, failed and recovered.
+
+## Repository layout
+
+An npm-workspaces monorepo.
+
+```
+minute-one/
+├─ packages/
+│  ├─ core/             Engine. Session controller, verifier, budgets, events,
+│  │                    report. Knows nothing about products or vendors.
+│  ├─ web/              Embeddable SDK: overlay (Shadow DOM), spotlight,
+│  │                    DOM observer + redaction, boot-from-key entry point
+│  ├─ voice-deepgram/   Deepgram Voice Agent adapter
+│  ├─ voice-pyai/       PyAI Omni adapter (unverified)
+│  └─ voice-mock/       Scripted adapter for tests and demo mode
+├─ app/                 Next.js app — landing page, console, report,
+│  └─ api/minute-one/   config · session (token mint) · events · knowledge
+├─ src/server/          Server-side stores: products, journeys, knowledge
+│                       (pgvector), events, embeddings, origin allowlists
+├─ docs/
+│  ├─ architecture/     Code map, knowledge base, journeys
+│  └─ product/          Roadmap
+├─ scripts/             SDK build, knowledge ingest, seeding, dev certs
+├─ e2e/                 Playwright end-to-end tests
+└─ public/              Built SDK bundle, brand assets, demo host page
+```
+
+Start with [`docs/architecture/overview.md`](docs/architecture/overview.md) for
+the code map.
+
+## Development
+
+```bash
+npm install          # all workspaces
+npm run dev          # http://localhost:3200
+npm run dev:https    # same, over TLS — required for microphone access
+npm test             # unit + integration (Vitest)
+npm run e2e          # end-to-end (Playwright)
+npm run typecheck    # strict TypeScript across all workspaces
+npm run build        # production build (also rebuilds the SDK bundle)
+npm run build:sdk    # rebuild public/minute-one.js only
+```
+
+The embeddable bundle is a **build artifact**. After changing anything in
+`packages/web` or `packages/voice-*`, run `npm run build:sdk` — or the page will
+load a stale widget. `npm run build` does it for you.
+
+Common traps (dev certificates and the microphone, tunnel origins, stale
+bundles) are collected in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 
 ## What is real, and what is not
 
-Honesty about state matters more here than a feature list.
+This section is deliberately blunt, because the product's whole claim is that it
+does not overstate what happened.
 
-**Implemented and verified by local tests**
-- Deepgram Voice Agent is the default real provider. The browser adapter uses
-  the official `@deepgram/agents` SDK for microphone input, streamed audio,
-  transcripts, barge-in, prompt updates and client-side function calls. The
-  overlay always shows which provider is carrying the audio.
-- `/api/minute-one/session` exchanges the server-only `DEEPGRAM_API_KEY` for a
-  short-lived bearer token. Product origins and the optional global spend gate
-  are checked before the Deepgram request.
-- The verification gate. A wrong action stays blocked and names the missing
-  evidence; the correction advances it.
-- Spotlight: hugs the target across route and DOM changes, passes clicks through,
-  leaves the host DOM untouched, cleans up between steps.
-- Origin-locked keys: a product key is refused from an unlisted origin, and no
-  voice token is minted for one.
-- Journey authoring in the console, compiled to a verified flow.
+**Real and verified end to end**
 
-**Needs a credentialed smoke test**
-- A live Deepgram browser session, including microphone capture, first audio,
-  transcript delivery, function-call round trip and reconnect. Unit tests cover
-  the adapter boundary and token route, but this repository run did not have a
-  real `DEEPGRAM_API_KEY` or microphone.
+- The verification gate. A step passes only on declared, observed evidence.
+- Deepgram voice: token mint, live session, barge-in, transcripts, tool calls.
+- Retrieval: help-centre ingest → pgvector → `search_knowledge` mid-conversation.
+- The console: products, data sources, retrieval search, journeys, sessions.
+- Multi-journey routing from natural speech.
+- Persistence in NeonDB, so a deployed instance keeps its state.
 
-**Configured, not proven at scale**
-- Session events and the report are process-local and reset on restart.
-- The product store is a JSON file. Single tenant, unauthenticated.
+**Not real yet**
 
-**Assumed**
-- The JustCall journey's labels and success text live in the console-authored
-  product, not in code. They were read off the real `get-started.php` page; if
-  that page changes, the journey is edited in the console, not the repo.
+- **PyAI adapter** — written against the docs, never run against a live account.
+- **Phone hand-off** — the browser has no carrier leg. Accepting shows a number
+  and a session reference; it does not transfer a call.
+- **Journey editing for multiple journeys** — the console's editor still assumes
+  one journey; author additional ones through the API.
+- **Auth and multi-tenancy** — the console is unauthenticated and single-tenant.
+  Do not expose it publicly. See [SECURITY.md](SECURITY.md).
+- **Published package** — no npm release; run from source.
 
-**Not built**
-- Microphone capture has not been exercised in an automated run; the sandbox
-  browsers block `getUserMedia`. The code path handles denial explicitly, with a
-  distinct notice and no offer of demo mode.
-- Host-event and backend-event evidence are typed extension points. Only DOM and
-  URL conditions are implemented.
-- **No telephony.** The handoff card shows a support number and ends the session
-  as partial. Nothing dials, and the wording says so.
-- No crawler, no test-account login, no auth, no billing, no multi-tenancy, no
-  hosted CDN, no visual flow editor, no browser extension.
+**Deliberately absent** — screenshot or vision-based navigation, an agent that
+clicks on the user's behalf, a general-purpose browser agent.
 
-**Never**
-- Silently swapping Deepgram for the mock. A failed connection is shown as a failure;
-  demo mode is an explicit choice and stays labelled as a mock.
-- The Deepgram API key reaching the browser. The page gets a short-lived bearer
-  token only after the server validates the request origin.
+## Status & roadmap
 
-## Reference integration
+**Now** — shipping inside JustCall as the first activation flow.
+**Next** — verify the PyAI adapter, multi-journey editing in the console, an
+npm-published widget.
+**Then** — authentication and multi-tenancy, design partners across adjacent
+SaaS.
 
-There is no localhost JustCall lookalike — the real integration runs on the
-actual app. `app/get-started.php` in the JustCall monolith loads the script,
-gated to a `*.justcall.local` host and to a key present in `localStorage`, so
-nothing is committed and customers cannot be affected. The generic Acme
-Scheduling page at `/embed-test` is the throwaway surface for trying the guide
-without that stack. Two things a real host integration
-runs into, both worth knowing before you try your own:
+Details in [`docs/product/roadmap.md`](docs/product/roadmap.md).
 
-- **Content-Security-Policy.** The host's `script-src` and `connect-src` must
-  name the Minute One origin, or the browser refuses both the script and its
-  config fetch. It looks identical to a certificate problem and is not one.
-- **Token origin.** The server validates the page's `Origin` before minting a
-  temporary Deepgram token. Add every real host origin to the product allowlist
-  and, when used, `DEEPGRAM_ALLOWED_ORIGINS`.
+## Security
 
-## Licence
+- Provider keys are **server-side only**. The browser receives a short-lived
+  bearer token, origin-locked to the product's allowlist.
+- The page observer sends a **redacted semantic snapshot** — roles, names,
+  headings, dialogs — never raw HTML, never form values, never password fields.
+- The public `mo_pk_…` key selects context. It cannot mint voice on its own.
+- Sessions are bounded by time, step count and voice minutes.
 
-None granted. All rights reserved, pending a decision — `package.json` declares
-`UNLICENSED` and every package is `private`, so nothing can be published by
-accident. Do not redistribute.
+Report vulnerabilities privately — see [SECURITY.md](SECURITY.md). Please do not
+open a public issue for a security problem.
+
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it
+covers the ground rules (never commit secrets; the core stays vendor-neutral;
+nothing but the controller may advance a step), how to add a voice provider, and
+the commit style.
+
+## License
+
+MIT © 2026 Saaslabs Technology. See [LICENSE](LICENSE).

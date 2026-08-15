@@ -1,8 +1,7 @@
 {
   "name": "minute-one",
   "version": "0.1.0",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "description": "Verified conversational onboarding. A voice guide that refuses to advance until the intended result is proven.",
   "scripts": {
     "dev": "next dev -p 3200",
@@ -41,5 +40,27 @@
   },
   "workspaces": [
     "packages/*"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arunav25/minute-one.git"
+  },
+  "homepage": "https://minute-one-ten.vercel.app",
+  "bugs": {
+    "url": "https://github.com/arunav25/minute-one/issues"
+  },
+  "keywords": [
+    "onboarding",
+    "voice-agent",
+    "activation",
+    "product-tour",
+    "rag",
+    "deepgram",
+    "saas",
+    "user-onboarding",
+    "voice-ai"
+  ],
+  "engines": {
+    "node": ">=22"
+  }
 }
