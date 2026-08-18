@@ -20,3 +20,14 @@ is a worse outcome than the finding it is suppressing.
 """
 regexes = ['''mo_pk_[0-9a-f]{24}''']
 paths = ['''examples/.*\.json''', '''README\.md''', '''docs/.*\.md''']
+
+[[allowlists]]
+description = """
+Redaction test fixtures.
+
+`redaction.test.ts` asserts that secret-shaped strings are stripped from what
+the DOM observer reports. To do that it must contain secret-shaped strings —
+invented ones, matching no live account. A scanner flagging them is the test
+doing its job, seen from the outside.
+"""
+paths = ['''packages/web/src/redaction\.test\.ts''']
