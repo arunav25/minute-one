@@ -14,19 +14,46 @@
   <a href="#license"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-7C5CFF.svg" /></a>
   <img alt="Node 22+" src="https://img.shields.io/badge/node-%E2%89%A522-3c873a.svg" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6.svg" />
-  <a href="https://minute-one-ten.vercel.app"><img alt="Live demo" src="https://img.shields.io/badge/demo-live-A487FF.svg" /></a>
+  <a href="https://web-production-4ce3a.up.railway.app/"><img alt="Live demo" src="https://img.shields.io/badge/try%20it%20live-web--production--4ce3a.up.railway.app-A487FF.svg" /></a>
 </p>
 
 ---
 
+## Try it live — no install
+
+A JustCall-style app with Minute One embedded, running against the deployed
+backend. **Start here if you are evaluating this repository:** it exercises the
+real path — the hosted SDK bundle, a cross-origin token mint, semantic retrieval
+and the verification gate — without cloning anything.
+
+### ▶ **https://web-production-4ce3a.up.railway.app/**
+
+Click the orb, bottom right, and ask it to **"add a phone number"** or
+**"send a message to a contact"**. Voice needs microphone permission; the guide
+will not advance a step until the page proves the step happened.
+
+The page itself installs the guide with one tag and knows nothing else about it:
+
+```html
+<script src="https://minute-one-ten.vercel.app/minute-one.js"
+        data-product-key="mo_pk_9c2b11bbcef62f212c9bafd7"></script>
+```
+
+To run the same journeys locally instead, see [Quick start](#quick-start) — a
+clone with **no keys and no database** still completes a verified journey on a
+scripted voice adapter.
+
+---
+
 **Project status:** pre-1.0 and under active development. The engine, the
-console, the knowledge base and the Deepgram voice path are working end to end
-and deployed. The PyAI adapter is written but unverified against a live account.
-There is no published npm package yet — you run it from source. See
-[Status & roadmap](#status--roadmap).
+console, the knowledge base and both voice paths are deployed and working end to
+end. PyAI is the default provider and mints live session tokens in production;
+Deepgram is the automatic fallback. There is no published npm package yet — you
+run it from source. See [Status & roadmap](#status--roadmap).
 
 ## Table of contents
 
+- [Try it live](#try-it-live--no-install)
 - [What it is](#what-it-is)
 - [Why it's different](#why-its-different)
 - [How it works](#how-it-works)
