@@ -195,10 +195,13 @@ Then open:
 | `/` | The landing page |
 | `/console` | Two seeded products, three journeys, knowledge sources, sessions |
 | `/embed-test` | A stand-in customer app with the widget installed |
-| `/embed-test?voice=mock` | The same, running the full journey on a **scripted voice adapter — no key** |
+| `/embed-test?voice=mock` | Forces the scripted adapter even when keys are present |
 
-`?voice=mock` is the honest demo: it runs the real engine, the real verifier and
-the real overlay, and labels itself as not-real-voice throughout.
+With no keys set, `/embed-test` runs the journey on a **scripted voice adapter**
+automatically — the real engine, the real verifier and the real overlay, with
+the voice stubbed and labelled as such throughout. Nothing claims to be real
+voice that is not: the report says `isRealVoice: false`. Add a key and the same
+page uses it, PyAI first.
 
 **To add real voice and retrieval**, copy `cp .env.example .env.local`, add the
 keys you have, and restart. Voice additionally needs TLS (below) because

@@ -12,13 +12,14 @@ import { GuideMount } from "./GuideMount";
  * real JustCall integration runs on the actual app at app.justcall.local, not a
  * localhost lookalike.
  *
- * Add `?voice=mock` to run without Deepgram (used by the browser tests).
+ * `?voice=mock` forces the scripted adapter. A server with no provider key
+ * selects it anyway — see `GuideMount`.
  */
-export function EmbedTest() {
+export function EmbedTest({ voiceProviders }: { voiceProviders: string[] }) {
   return (
     <>
       <AcmeApp />
-      <GuideMount />
+      <GuideMount voiceProviders={voiceProviders} />
     </>
   );
 }
